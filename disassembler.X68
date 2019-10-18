@@ -23,15 +23,17 @@
 BASE    dc.b    15      * New base we want
 VALUE   dc.l    $973D4  * Hex val to convert
 
-
+*************************
+*    Actual Program     *
+*************************
 
     ORG    $1000
 START:                  ; first instruction of program
+
     JSR         GET_USER_STR
     JSR         PRINT_STR
 
 SIMHALT                 ; halt simulator
-
 
 *************************
 *         I/O           *
@@ -74,6 +76,7 @@ OP_MOVE:
 
 
     END    START        ; last line of source
+
 
 
 
