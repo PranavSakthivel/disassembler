@@ -29,7 +29,7 @@ VALUE   dc.l    $973D4  * Hex val to convert
 
     ORG    $1000
 START:                  ; first instruction of program
-    MOVE.L      #$FFFFFFFF,D2
+    MOVE.L      #$FFFFFFF2,D2
     JSR         GET_OP_CODE
 
 *************************
@@ -70,45 +70,42 @@ GET_OP_CODE:
     MOVE.L      D2,D3
     AND.L       #$0000000F,D3           * We only want to test the right most nibble, get rid of all other bits
     
-    CMP.B       #00,D3                  * Check if nibble = 0
+    CMP.B       #$00,D3                 * Check if nibble = 0 - INVALID
     BEQ         INVALID_NIBBLE
-    CMP.B       #01,D3                  * Check if nibble = 1
-    BEQ         OP_NIBBLE_1
-    CMP.B       #02,D3                  * Check if nibble = 2
+    CMP.B       #$01,D3                 * Check if nibble = 1 - MOVE.B
+    BEQ         OP_MOVE_BYTE
+    CMP.B       #$02,D3                 * Check if nibble = 2 - MOVE.L, MOVEA.L
     BEQ         OP_NIBBLE_2
-    CMP.B       #03,D3                  * Check if nibble = 3
+    CMP.B       #$03,D3                 * Check if nibble = 3 - MOVE.W, MOVEA.W
     BEQ         OP_NIBBLE_3
-    CMP.B       #04,D3                  * Check if nibble = 4
+    CMP.B       #$04,D3                 * Check if nibble = 4 - NOP, MOVEM, LEA, JSR, RTS
     BEQ         OP_NIBBLE_4
-    CMP.B       #05,D3                  * Check if nibble = 5
-    BEQ         OP_NIBBLE_5
-    CMP.B       #06,D3                  * Check if nibble = 6
+    CMP.B       #$05,D3                 * Check if nibble = 5 - ADDQ
+    BEQ         OP_ADDQ
+    CMP.B       #$06,D3                 * Check if nibble = 6 - BGT, BEQ, BLE
     BEQ         OP_NIBBLE_6
-    CMP.B       #07,D3                  * Check if nibble = 7
-    BEQ         OP_NIBBLE_7
-    CMP.B       #08,D3                  * Check if nibble = 8
-    BEQ         OP_NIBBLE_8
-    CMP.B       #09,D3                  * Check if nibble = 9
-    BEQ         OP_NIBBLE_9
-    CMP.B       #0A,D3                  * Check if nibble = A
-    BEQ         OP_NIBBLE_A
-    CMP.B       #0B,D3                  * Check if nibble = B
-    BEQ         OP_NIBBLE_B
-    CMP.B       #0C,D3                  * Check if nibble = C
-    BEQ         OP_NIBBLE_C
-    CMP.B       #0D,D3                  * Check if nibble = D
+    CMP.B       #$07,D3                 * Check if nibble = 7 - MOVEQ
+    BEQ         OP_MOVEQ
+    CMP.B       #$08,D3                 * Check if nibble = 8 - OR
+    BEQ         OP_OR
+    CMP.B       #$09,D3                 * Check if nibble = 9 - SUB
+    BEQ         OP_SUB
+    CMP.B       #$0A,D3                 * Check if nibble = A - INVALID
+    BEQ         INVALID_NIBBLE
+    CMP.B       #$0B,D3                 * Check if nibble = B - INVALID
+    BEQ         INVALID_NIBBLE
+    CMP.B       #$0C,D3                 * Check if nibble = C - AND
+    BEQ         OP_AND
+    CMP.B       #$0D,D3                 * Check if nibble = D - ADD, ADDA
     BEQ         OP_NIBBLE_D
-    CMP.B       #0E,D3                  * Check if nibble = E
+    CMP.B       #$0E,D3                 * Check if nibble = E - LSL, LSR, ASL, ASR, ROL, ROR
     BEQ         OP_NIBBLE_E
-    CMP.B       #0F,D3                  * Check if nibble = F
+    CMP.B       #$0F,D3                 * Check if nibble = F - INVALID
     BEQ         INVALID_NIBBLE
     BRA         INVALID_NIBBLE          * Assume if we haven't branched yet something is wrong
     
 
 INVALID_NIBBLE:
-
-
-OP_NIBBLE_1:
 
 OP_NIBBLE_2:
 
@@ -116,32 +113,16 @@ OP_NIBBLE_3:
 
 OP_NIBBLE_4:
 
-OP_NIBBLE_5:
-
 OP_NIBBLE_6:
 
 OP_NIBBLE_7:
-
-OP_NIBBLE_8:
-
-OP_NIBBLE_9:
-
-OP_NIBBLE_A:
-
-OP_NIBBLE_B:
-
-OP_NIBBLE_C:
 
 OP_NIBBLE_D:
 
 OP_NIBBLE_E:
 
-OP_NIBBLE_F:
 
-
-
-OP_MOVE:
-    * Code *
+OP_MOVE_BYTE:
 
 *************************
 *        Other          *
