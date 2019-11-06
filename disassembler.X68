@@ -29,7 +29,7 @@ VALUE   dc.l    $973D4  * Hex val to convert
 
     ORG    $1000
 START:                  ; first instruction of program
-    MOVE.L      #$FFFFFFF2,D2
+    MOVE.L      #$FFFF2FFF,D2
     JSR         GET_OP_CODE
 
 *************************
@@ -63,12 +63,14 @@ PRINT_NUM:
 *************************
 *       Op Codes        *
 *************************
-* Assumes binary is in D2 
-* Uses D3
 
+* Will attempt to discover what the opcode in D2 is and will call a subrountine to execute based on that opcode
+* Requires: opcode binary is in D2
 GET_OP_CODE:
     MOVE.L      D2,D3
-    AND.L       #$0000000F,D3           * We only want to test the right most nibble, get rid of all other bits
+    AND.L       #$0000F000,D3           * We only want to test the instructions first nibble, get rid of all other bits
+    LSR.L       #8,D3
+    LSR.L       #4,D3
     
     CMP.B       #$00,D3                 * Check if nibble = 0 - INVALID
     BEQ         INVALID_NIBBLE
@@ -122,7 +124,32 @@ OP_NIBBLE_D:
 OP_NIBBLE_E:
 
 
+
 OP_MOVE_BYTE:
+
+OP_MOVE_WORD:
+
+OP_MOVE_LONG:
+
+OP_MOVEA_WORD:
+
+OP_MOVEA_LONG:
+
+OP_ADD:
+
+OP_ADDA:
+
+OP_ADDQ:
+
+OP_MOVEQ:
+
+OP_OR:
+
+OP_SUB:
+
+OP_AND:
+
+
 
 *************************
 *        Other          *
