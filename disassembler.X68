@@ -67,7 +67,7 @@ PRINT_NUM:
 * Will attempt to discover what the opcode in D2 is and will call a subrountine to execute based on that opcode
 * Requires: opcode binary is in D2
 GET_OP_CODE:
-    MOVE.L      D2,D3
+    MOVE.W      D2,D3
     AND.L       #$0000F000,D3           * We only want to test the instructions first nibble, get rid of all other bits
     LSR.L       #8,D3
     LSR.L       #4,D3
@@ -109,19 +109,28 @@ GET_OP_CODE:
 
 INVALID_NIBBLE:
 
-OP_NIBBLE_2:
+OP_NIBBLE_2:    * MOVE.L, MOVEA.L
 
-OP_NIBBLE_3:
+OP_NIBBLE_3:    * MOVE.W, MOVEA.W
 
-OP_NIBBLE_4:
+OP_NIBBLE_4:    * NOP, MOVEM, LEA, JSR, RTS
+    MOVE.W      D2,D3                   * Because the nibble is the same we must test the rest of the code
+    CMP.W       #$4E71,D3               * 4E71 = NOP
+    BEQ         OP_NOP
+    CMP.B       #$4E75,D3               * 4E75 = RTS
+    BEQ         OP_RTS
+    BTST        #8,D3                   * MOVEM is the only nibble 4 with a 1 as the 8th bit
+    *BNE or BEQ     OP_MOVEM
+    **** NOTE NOP RTS & JSR all start with 4E
 
-OP_NIBBLE_6:
+OP_NIBBLE_4_E:
+    
 
-OP_NIBBLE_7:
+OP_NIBBLE_6:    * BGT, BEQ, BLE
 
-OP_NIBBLE_D:
+OP_NIBBLE_D:    * ADD, ADDA
 
-OP_NIBBLE_E:
+OP_NIBBLE_E:    * LSL, LSR, ASL, ASR, ROL, ROR
 
 
 
@@ -149,6 +158,9 @@ OP_SUB:
 
 OP_AND:
 
+OP_NOP:
+
+OP_RTS:
 
 
 *************************
