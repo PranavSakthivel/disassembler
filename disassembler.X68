@@ -24,6 +24,37 @@ BASE    dc.b    15      * New base we want
 VALUE   dc.l    $973D4  * Hex val to convert
 
 *************************
+*  Global subrountines  *
+*************************
+
+CLEAR_ALL_DATA_REGISTERS:
+    CLR         D0
+    CLR         D1
+    CLR         D2
+    CLR         D3
+    CLR         D4
+    CLR         D5
+    CLR         D6
+    CLR         D7
+    RTS
+
+CLEAR_INPUT_DATA_REGISTERS:
+    CLR         D1
+    CLR         D2
+    CLR         D3
+    RTS
+
+CLEAR_OPEN_DATA_REGISTERS:
+    CLR         D4
+    CLR         D5
+    CLR         D6
+    CLR         D7
+    RTS
+
+GLOBAL_RTS:
+    RTS
+
+*************************
 *    Actual Program     *
 *************************
 
