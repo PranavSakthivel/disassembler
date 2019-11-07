@@ -114,24 +114,29 @@ OP_NIBBLE_2:    * MOVE.L, MOVEA.L
 OP_NIBBLE_3:    * MOVE.W, MOVEA.W
 
 OP_NIBBLE_4:    * NOP, MOVEM, LEA, JSR, RTS
-    MOVE.W      D2,D3                   * Because the nibble is the same we must test the rest of the code
-    CMP.W       #$4E71,D3               * 4E71 = NOP
-    BEQ         OP_NOP
-    CMP.B       #$4E75,D3               * 4E75 = RTS
-    BEQ         OP_RTS
-    BTST        #8,D3                   * MOVEM is the only nibble 4 with a 1 as the 8th bit
-    *BNE or BEQ     OP_MOVEM
-    **** NOTE NOP RTS & JSR all start with 4E
+    MOVE.W      D2,D4                   * Because the nibble is the same we must test the rest of the code
+    LSR.L       #8,D4                   * We first want to check the left most byte so we get rid of everything else  
 
-OP_NIBBLE_4_E:
+    CMP.W       #$4E,D3                 * 4E = NOP, JSR, RTS
+    BEQ         OP_BYTE_4E
     
+    BTST        #8,D3                   * MOVEM is the only nibble 4 with a 1 as the 8th bit
+    BNE         OP_MOVEM                * There is a 1 at the 8th bit
+    BRA         OP_LEA                  * If no 1 at 8th bit then default to LEA
+
+OP_BYTE_4E:     * NOP, JSR, RTS
+    CMP.B       #$4E75,D2               * 4E75 = RTS
+    BEQ         OP_RTS 
+    CMP.B       #$4E71,D2               * 4E71 = NOP
+    BEQ         OP_NOP
+    BRA         OP_JSR                  * Default: JSR
 
 OP_NIBBLE_6:    * BGT, BEQ, BLE
 
 OP_NIBBLE_D:    * ADD, ADDA
 
 OP_NIBBLE_E:    * LSL, LSR, ASL, ASR, ROL, ROR
-
+ 
 
 
 OP_MOVE_BYTE:
@@ -159,6 +164,9 @@ OP_SUB:
 OP_AND:
 
 OP_NOP:
+
+OP_JSR:
+
 
 OP_RTS:
 
