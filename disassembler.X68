@@ -1,14 +1,19 @@
 *-----------------------------------------------------------
-* Title      : Final project
-* Written by : 
+* Title      : Final project: Disassembler
+* Group      : The disassemblers
+* Written by : Pranav Sakthivel, Kaib Cropley, Yash Khanchandani
 * Created    : 10/17/2019
-* Description:
+* Project Description: 
+*   Write an inverse assembler (disassembler) that will convert a memory image of instructions 
+*   and data back to 68000 assembly language and output the disassembled code to the display. 
+*   You will not be required to disassemble all of the instructions and addressing modes. 
+*   The list of instructions and addressing modes is given at Required Opcodes page.
 *-----------------------------------------------------------
 
 
 
 *-----------------------------------------------------------
-* Registers
+* Global Registers
 *-----------------------------------------------------------
 * D0 - DX = Free
 * 
@@ -71,102 +76,102 @@ GLOBAL_RTS:
 *************************
 
 START:                  ; first instruction of program
-        JSR         GET_USER_INPUT  * Get user input as string
+        JSR         GET_USER_INPUT      * Get user input as string
         
-        MOVEA.L     A1,A2           * Move A1 into A2 so value does not get overwritten
-        MOVEA.L     #$2000,A3       * Starting address for storing Hex number at A3
+        MOVEA.L     A1,A2               * Move A1 into A2 so value does not get overwritten
+        MOVEA.L     #$2000,A3           * Starting address for storing Hex number at A3
 
-        MOVE.B      #9,D2           * Number of digits to be read, subtracted each iteration
-        MOVE.B      #1,D7           * Set that we are on the first number
-        BRA         ASCII_TO_HEX    * Branch to converting number to hex
+        MOVE.B      #9,D2               * Number of digits to be read, subtracted each iteration
+        MOVE.B      #1,D7               * Set that we are on the first number
+        BRA         ASCII_TO_HEX        * Branch to converting number to hex
     
 GET_USER_INPUT:     * Get user hex input
-        LEA         IntroMsg,A1     * Load intro message into A1
+        LEA         IntroMsg,A1         * Load intro message into A1
         
-        JSR         PRINT_MSG_ENDL  * Print intro message
+        JSR         PRINT_MSG_ENDL      * Print intro message
         JSR         GET_INPUT_AS_STRING * Get the user input as string
         
         RTS    
     
 PRINT_MSG_ENDL:     * Print message with CR LF
         MOVE.B      #13,D0
-        TRAP        #15
+        TRAP        #15                 * Task 13: Display the NULL terminated string at (A1) with CR, LF.
         
         RTS
 
 PRINT_MSG:          * Print message
-        MOVE.B      #14,D0  * Loads task 14 (Print message without CRLF) into D0
-        TRAP        #15     * Execute Task 14
+        MOVE.B      #14,D0              * Loads task 14 (Print message without CRLF) into D0
+        TRAP        #15                 * Execute Task 14: Display the NULL terminated string at (A1) without CR, LF.
         
         RTS
        
-GET_INPUT_AS_STRING:        * Get input from user as string
-        MOVE.B      #2,D0   * Load code 2 into D0 to get string
-        TRAP        #15     * Execute code 2
+GET_INPUT_AS_STRING:                    * Get input from user as string
+        MOVE.B      #2,D0               * Load code 2 into D0 to get string
+        TRAP        #15                 * Execute code 2
         
         RTS
         
-PRINT_NUM           * Print number
-        MOVE.B      #3,D0   * Move code 3 to D0
-        TRAP        #15     * Execute code 3 to print number
+PRINT_NUM:          * Print number
+        MOVE.B      #3,D0               * Move code 3 to D0
+        TRAP        #15                 * Execute code 3: Display signed number in D1.L in decimal in smallest field
         
         RTS
         
 ASCII_TO_HEX:       * Convert ASCII values to hex
-        MOVE.B      (A2)+,D3    * Get value of each byte in string one by one
-        SUB         #1,D2       * Decrement D2 by 1 for next loop
+        MOVE.B      (A2)+,D3            * Get value of each byte in string one by one
+        SUB         #1,D2               * Decrement D2 by 1 for next loop
         
-        CMP.B       #0,D2       * Check if the looping is over
-        BEQ         DONE_WITH_HEX * Exit to next instruction
+        CMP.B       #0,D2               * Check if the looping is over
+        BEQ         DONE_WITH_HEX       * Exit to next instruction
         
-        CMP.B       #$3A,D3      * Check if the character is a number
-        BLT         CHECK_NUMBER   * Verify number
+        CMP.B       #$3A,D3             * Check if the character is a number
+        BLT         CHECK_NUMBER        * Verify number
         
-        CMP.B       #$40,D3     * Check if character is a letter
-        BGT         CHECK_LETTER    * Branch to verify letter
+        CMP.B       #$40,D3             * Check if character is a letter
+        BGT         CHECK_LETTER        * Branch to verify letter
         
 CHECK_LETTER:       * Check if in valid letter range
-        CMP.B       #$47,D3     * Check if letter is valid
-        BLT         CONFIRM_LETTER  * Find exact letter
+        CMP.B       #$47,D3             * Check if letter is valid
+        BLT         CONFIRM_LETTER      * Find exact letter
         BGE         INVALID
         
 CONFIRM_LETTER:     * Find exact letter
-        SUB.B       #$37,D3     * Subtract 37 to convert ASCII to hex
-        MOVE.B      D3,(A3)+    * Add the hex digit to the address register, increment address register
+        SUB.B       #$37,D3             * Subtract 37 to convert ASCII to hex
+        MOVE.B      D3,(A3)+            * Add the hex digit to the address register, increment address register
        
         
-        BRA         ASCII_TO_HEX    * Continue converting to hex
+        BRA         ASCII_TO_HEX        * Continue converting to hex
         
 CHECK_NUMBER:       * Check if in valid number range
-        CMP.B       #$2F,D3     * Check if valid number
-        BGT         CONFIRM_NUMBER  * Branch to get value of exact number
-        BLE         INVALID     * Branch to error case
+        CMP.B       #$2F,D3             * Check if valid number
+        BGT         CONFIRM_NUMBER      * Branch to get value of exact number
+        BLE         INVALID             * Branch to error case
 
 
 CONFIRM_NUMBER:     * Confirm what number it exactly is
-        SUB.B       #$30,D3     * Subtract $30 from D3 to convert to hex
-        MOVE.B      D3,(A3)+    * Move to A3 and post increment
+        SUB.B       #$30,D3             * Subtract $30 from D3 to convert to hex
+        MOVE.B      D3,(A3)+            * Move to A3 and post increment
                 
         BRA         ASCII_TO_HEX
 
         
 DONE_WITH_HEX:  
-        MOVE.B      #0,D2       * For loop constant
-        MOVEA.L     #$2000,A3     * Clear start address
+        MOVE.B      #0,D2               * For loop constant
+        MOVEA.L     #$2000,A3           * Clear start address
         
 SAVE_HEX:
-        ADD.B       #1,D2       * Increment loop
-        BEQ         AFTER_ADDRESS * Move to method after hex
+        ADD.B       #1,D2               * Increment loop
+        BEQ         AFTER_ADDRESS       * Move to method after hex
         
-        MOVE.B      (A3)+,D4    * Move hex digit to D4
-        ADD.B       D4,D3       * Add digit to D3
+        MOVE.B      (A3)+,D4            * Move hex digit to D4
+        ADD.B       D4,D3               * Add digit to D3
         
-        CMP.B       #8,D2       * Check if loop is over
-        BEQ         AFTER_ADDRESS * Move to method after hex
+        CMP.B       #8,D2               * Check if loop is over
+        BEQ         AFTER_ADDRESS       * Move to method after hex
         
-        LSL.L       #4,D3       * Move 4 bits 
+        LSL.L       #4,D3               * Move 4 bits 
         
-        BRA         SAVE_HEX    * Loop until full number is saved
+        BRA         SAVE_HEX            * Loop until full number is saved
         
 AFTER_ADDRESS:
         CMP.B       #1,D7
@@ -179,12 +184,12 @@ GET_2ND_NUMBER:
         
         JSR         GET_INPUT_AS_STRING  * Get user input as string
         
-        MOVEA.L     A1,A2           * Move A1 into A2 so value does not get overwritten
-        MOVEA.L     #$2000,A3       * Starting address for storing Hex number at A3
+        MOVEA.L     A1,A2               * Move A1 into A2 so value does not get overwritten
+        MOVEA.L     #$2000,A3           * Starting address for storing Hex number at A3
 
-        MOVE.B      #9,D2           * Number of digits to be read, subtracted each iteration
+        MOVE.B      #9,D2               * Number of digits to be read, subtracted each iteration
 
-        BRA         ASCII_TO_HEX    * Branch to converting number to hex
+        BRA         ASCII_TO_HEX        * Branch to converting number to hex
         
 ALL_NUMBERS_DONE:
 
@@ -363,10 +368,10 @@ OP_ROR:
 *        Other          *
 *************************
 INVALID:
-        LEA         ErrorMsg,A1 * Load error message
-        JSR         PRINT_MSG_ENDL  *Print error message
+        LEA         ErrorMsg,A1         * Load error message
+        JSR         PRINT_MSG_ENDL      * Print error message
         
-        BRA         START       * Restart program
+        BRA         START               * Restart program
 
 DONE:
     SIMHALT                 ; halt simulator
