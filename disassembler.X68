@@ -20,8 +20,9 @@
 *************************
 *      Constants        *
 *************************
-BASE    dc.b    15      * New base we want
-VALUE   dc.l    $973D4  * Hex val to convert
+CR                  EQU     $0D     * Ascii for carriage return
+LF                  EQU     $0D     * Ascii for carriage return
+MSG_INVALID_OP          DC.B        "Invalid op code: ",CR,LF,0
 
 *************************
 *    Actual Program     *
@@ -77,7 +78,7 @@ GET_OP_CODE:
     LSR.L       #8,D4                   * Get rid of the right most byte and replace it with the left most
     
     CMP.B       #$00,D3                 * Check if nibble = 0 - INVALID
-    BEQ         INVALID_NIBBLE
+    BEQ         INVALID_OP
     CMP.B       #$01,D3                 * Check if nibble = 1 - MOVE.B
     BEQ         OP_MOVE_BYTE
     CMP.B       #$02,D3                 * Check if nibble = 2 - MOVE.L, MOVEA.L
@@ -97,9 +98,9 @@ GET_OP_CODE:
     CMP.B       #$09,D3                 * Check if nibble = 9 - SUB
     BEQ         OP_SUB
     CMP.B       #$0A,D3                 * Check if nibble = A - INVALID
-    BEQ         INVALID_NIBBLE
+    BEQ         INVALID_OP
     CMP.B       #$0B,D3                 * Check if nibble = B - INVALID
-    BEQ         INVALID_NIBBLE
+    BEQ         INVALID_OP
     CMP.B       #$0C,D3                 * Check if nibble = C - AND
     BEQ         OP_AND
     CMP.B       #$0D,D3                 * Check if nibble = D - ADD, ADDA
@@ -107,11 +108,14 @@ GET_OP_CODE:
     CMP.B       #$0E,D3                 * Check if nibble = E - LSL, LSR, ASL, ASR, ROL, ROR
     BEQ         OP_NIBBLE_E
     CMP.B       #$0F,D3                 * Check if nibble = F - INVALID
-    BEQ         INVALID_NIBBLE
-    BRA         INVALID_NIBBLE          * Assume if we haven't branched yet something is wrong
+    BEQ         INVALID_OP
+    BRA         INVALID_OP              * Assume if we haven't branched yet something is wrong
     
 
-INVALID_NIBBLE:
+INVALID_OP:
+    LEA         MSG_INVALID_OP,A1
+    JSR         PRINT_STR
+    RTS
 
 OP_NIBBLE_2:    * MOVE.L, MOVEA.L
 
@@ -139,7 +143,7 @@ OP_NIBBLE_6:    * BGT, BEQ, BLE
     BEQ         OP_BEQ
     CMP.W       #$6F,D4                 * 6F = BLT
     BEQ         OP_BLT
-    BRA         INVALID_NIBBLE          * If doesn't match the bytes from above then it's invalid
+    BRA         INVALID_OP              * If doesn't match the bytes from above then it's invalid
 
 
 OP_NIBBLE_D:    * ADD, ADDA
@@ -156,7 +160,7 @@ OP_NIBBLE_E:    * LSL, LSR, ASL, ASR, ROL, ROR
     CMP.B       #$02,D4                 * If bits are 11 = RO
     BEQ         OP_ROL_OR_ROR
 
-    BRA         INVALID_NIBBLE          * If bits are 10 = INVALID
+    BRA         INVALID_OP              * If bits are 10 = INVALID
 
 OP_LSL_OR_LSR:
     BTST        #8,D2
