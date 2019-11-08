@@ -20,9 +20,14 @@
 *************************
 *      Constants        *
 *************************
+Addr1           EQU     $5000
+Addr2           EQU     $5008 * difference of 4 or 8?
 CR                  EQU     $0D     * Ascii for carriage return
 LF                  EQU     $0D     * Ascii for carriage return
-MSG_INVALID_OP          DC.B        "Invalid op code: ",CR,LF,0
+MSG_INVALID_OP          DC.B        'Invalid op code: ',CR,LF,0
+IntroMsg        DC.B    'Please enter start and end hexadecimal addresses, one after the other: ',0
+OverflowError   DC.B    'Overflow Error',CR,LF,0
+ErrorMsg        DC.B    'Error: Invalid characters were entered. Please try again.',CR,LF,0
 
 *************************
 *  Global subrountines  *
@@ -60,37 +65,128 @@ GLOBAL_RTS:
 *************************
 
     ORG    $1000
-START:                  ; first instruction of program
-    MOVE.L      #$FFFF2FFF,D2
-    JSR         GET_OP_CODE
 
 *************************
 *         I/O           *
 *************************
-* Return:   String from user in A1
-*           Length of string in D1, (max 80)
-GET_USER_STR:
-    MOVE.B      #2,D0       * Task 2: Read string from the keyboard
-    TRAP        #15         * Execute task 2       
-    RTS
-    
-* Return:   Number from user in D1
-GET_USER_NUM:
-    MOVE.B      #4,D0       * Task 4: Read number from the keyboard
-    TRAP        #15         * Execute task 4
-    RTS
 
-* Requires: Address of string to print in A1
-PRINT_STR:      
-    MOVE.B      #14,D0      * Task 14: Print string from A1
-    TRAP        #15         * Execute task 14
-    RTS
+START:                  ; first instruction of program
+        JSR         GET_USER_INPUT  * Get user input as string
+        
+        MOVEA.L     A1,A2           * Move A1 into A2 so value does not get overwritten
+        MOVEA.L     #$2000,A3       * Starting address for storing Hex number at A3
+
+        MOVE.B      #9,D2           * Number of digits to be read, subtracted each iteration
+        MOVE.B      #1,D7           * Set that we are on the first number
+        BRA         ASCII_TO_HEX    * Branch to converting number to hex
     
-* Requires: Number in D1
-PRINT_NUM:
-    MOVE.B      #3,D0       * Task 3: Print signed number from D1.L
-    TRAP        #15         * Execute task 3
-    RTS
+GET_USER_INPUT:     * Get user hex input
+        LEA         IntroMsg,A1     * Load intro message into A1
+        
+        JSR         PRINT_MSG_ENDL  * Print intro message
+        JSR         GET_INPUT_AS_STRING * Get the user input as string
+        
+        RTS    
+    
+PRINT_MSG_ENDL:     * Print message with CR LF
+        MOVE.B      #13,D0
+        TRAP        #15
+        
+        RTS
+
+PRINT_MSG:          * Print message
+        MOVE.B      #14,D0  * Loads task 14 (Print message without CRLF) into D0
+        TRAP        #15     * Execute Task 14
+        
+        RTS
+       
+GET_INPUT_AS_STRING:        * Get input from user as string
+        MOVE.B      #2,D0   * Load code 2 into D0 to get string
+        TRAP        #15     * Execute code 2
+        
+        RTS
+        
+PRINT_NUM           * Print number
+        MOVE.B      #3,D0   * Move code 3 to D0
+        TRAP        #15     * Execute code 3 to print number
+        
+        RTS
+        
+ASCII_TO_HEX:       * Convert ASCII values to hex
+        MOVE.B      (A2)+,D3    * Get value of each byte in string one by one
+        SUB         #1,D2       * Decrement D2 by 1 for next loop
+        
+        CMP.B       #0,D2       * Check if the looping is over
+        BEQ         DONE_WITH_HEX * Exit to next instruction
+        
+        CMP.B       #$3A,D3      * Check if the character is a number
+        BLT         CHECK_NUMBER   * Verify number
+        
+        CMP.B       #$40,D3     * Check if character is a letter
+        BGT         CHECK_LETTER    * Branch to verify letter
+        
+CHECK_LETTER:       * Check if in valid letter range
+        CMP.B       #$47,D3     * Check if letter is valid
+        BLT         CONFIRM_LETTER  * Find exact letter
+        BGE         INVALID
+        
+CONFIRM_LETTER:     * Find exact letter
+        SUB.B       #$37,D3     * Subtract 37 to convert ASCII to hex
+        MOVE.B      D3,(A3)+    * Add the hex digit to the address register, increment address register
+       
+        
+        BRA         ASCII_TO_HEX    * Continue converting to hex
+        
+CHECK_NUMBER:       * Check if in valid number range
+        CMP.B       #$2F,D3     * Check if valid number
+        BGT         CONFIRM_NUMBER  * Branch to get value of exact number
+        BLE         INVALID     * Branch to error case
+
+
+CONFIRM_NUMBER:     * Confirm what number it exactly is
+        SUB.B       #$30,D3     * Subtract $30 from D3 to convert to hex
+        MOVE.B      D3,(A3)+    * Move to A3 and post increment
+                
+        BRA         ASCII_TO_HEX
+
+        
+DONE_WITH_HEX:  
+        MOVE.B      #0,D2       * For loop constant
+        MOVEA.L     #$2000,A3     * Clear start address
+        
+SAVE_HEX:
+        ADD.B       #1,D2       * Increment loop
+        BEQ         AFTER_ADDRESS * Move to method after hex
+        
+        MOVE.B      (A3)+,D4    * Move hex digit to D4
+        ADD.B       D4,D3       * Add digit to D3
+        
+        CMP.B       #8,D2       * Check if loop is over
+        BEQ         AFTER_ADDRESS * Move to method after hex
+        
+        LSL.L       #4,D3       * Move 4 bits 
+        
+        BRA         SAVE_HEX    * Loop until full number is saved
+        
+AFTER_ADDRESS:
+        CMP.B       #1,D7
+        BEQ         GET_2ND_NUMBER
+        BNE         ALL_NUMBERS_DONE
+        
+GET_2ND_NUMBER:
+        MOVE.L      D3,D5
+        ADD.B       #1,D7
+        
+        JSR         GET_INPUT_AS_STRING  * Get user input as string
+        
+        MOVEA.L     A1,A2           * Move A1 into A2 so value does not get overwritten
+        MOVEA.L     #$2000,A3       * Starting address for storing Hex number at A3
+
+        MOVE.B      #9,D2           * Number of digits to be read, subtracted each iteration
+
+        BRA         ASCII_TO_HEX    * Branch to converting number to hex
+        
+ALL_NUMBERS_DONE:
 
 *************************
 *       Op Codes        *
@@ -145,7 +241,7 @@ GET_OP_CODE:
 
 INVALID_OP:
     LEA         MSG_INVALID_OP,A1
-    JSR         PRINT_STR
+    JSR         PRINT_MSG
     RTS
 
 OP_NIBBLE_2:    * MOVE.L, MOVEA.L
@@ -266,13 +362,18 @@ OP_ROR:
 *************************
 *        Other          *
 *************************
-
+INVALID:
+        LEA         ErrorMsg,A1 * Load error message
+        JSR         PRINT_MSG_ENDL  *Print error message
+        
+        BRA         START       * Restart program
 
 DONE:
     SIMHALT                 ; halt simulator
 
 
     END    START        ; last line of source
+
 
 
 
