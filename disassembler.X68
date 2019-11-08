@@ -66,11 +66,15 @@ PRINT_NUM:
 
 * Will attempt to discover what the opcode in D2 is and will call a subrountine to execute based on that opcode
 * Requires: opcode binary is in D2
+*   Uses:   D3,D4
 GET_OP_CODE:
     MOVE.W      D2,D3
     AND.L       #$0000F000,D3           * We only want to test the instructions first nibble, get rid of all other bits
     LSR.L       #8,D3
     LSR.L       #4,D3
+
+    MOVE.W      D2,D4                   * For inconclusive nibbles then we need to check the next nibble (aka second byte from the right)
+    LSR.L       #8,D4                   * Get rid of the right most byte and replace it with the left most
     
     CMP.B       #$00,D3                 * Check if nibble = 0 - INVALID
     BEQ         INVALID_NIBBLE
@@ -114,30 +118,64 @@ OP_NIBBLE_2:    * MOVE.L, MOVEA.L
 OP_NIBBLE_3:    * MOVE.W, MOVEA.W
 
 OP_NIBBLE_4:    * NOP, MOVEM, LEA, JSR, RTS
-    MOVE.W      D2,D4                   * Because the nibble is the same we must test the rest of the code
-    LSR.L       #8,D4                   * We first want to check the left most byte so we get rid of everything else  
-
-    CMP.W       #$4E,D3                 * 4E = NOP, JSR, RTS
+    CMP.B       #$4E,D3                 * 4E = NOP, JSR, RTS
     BEQ         OP_BYTE_4E
     
     BTST        #8,D3                   * MOVEM is the only nibble 4 with a 1 as the 8th bit
     BNE         OP_MOVEM                * There is a 1 at the 8th bit
-    BRA         OP_LEA                  * If no 1 at 8th bit then default to LEA
+    BRA         OP_LEA                  * If no 1 at 8th bit then default to LEA <--- CHANGE TO CATCH FALSE POSITIVES
 
 OP_BYTE_4E:     * NOP, JSR, RTS
-    CMP.B       #$4E75,D2               * 4E75 = RTS
+    CMP.W       #$4E75,D2               * 4E75 = RTS
     BEQ         OP_RTS 
-    CMP.B       #$4E71,D2               * 4E71 = NOP
+    CMP.W       #$4E71,D2               * 4E71 = NOP
     BEQ         OP_NOP
-    BRA         OP_JSR                  * Default: JSR
+    BRA         OP_JSR                  * Default: JSR <--- CHANGE TO CATCH FALSE POSITIVES
 
 OP_NIBBLE_6:    * BGT, BEQ, BLE
+    CMP.W       #$6E,D4                 * 6E = BGT
+    BEQ         OP_BGT
+    CMP.W       #$67,D4                 * 67 = BEQ
+    BEQ         OP_BEQ
+    CMP.W       #$6F,D4                 * 6F = BLT
+    BEQ         OP_BLT
+    BRA         INVALID_NIBBLE          * If doesn't match the bytes from above then it's invalid
+
 
 OP_NIBBLE_D:    * ADD, ADDA
 
 OP_NIBBLE_E:    * LSL, LSR, ASL, ASR, ROL, ROR
+    MOVE.W      D2,D4                   * To check between if it's LS, AS or RO we need to check the 3rd and 4th bits
+    LSR.L       #3,D4                   * Move the bits we need to the right most places
+    AND.W       #%0000000000000011,D4   * Get rid of all other bits
+                                        * Note to compare Left or Right use the 8th bit of D2
+    CMP.B       #$01,D4                 * If bits are 01 = LS
+    BEQ         OP_LSL_OR_LSR
+    CMP.B       #$00,D4                 * If bits are 00 = AS
+    BEQ         OP_ASL_OR_ASR
+    CMP.B       #$02,D4                 * If bits are 11 = RO
+    BEQ         OP_ROL_OR_ROR
+
+    BRA         INVALID_NIBBLE          * If bits are 10 = INVALID
+
+OP_LSL_OR_LSR:
+    BTST        #8,D2
+    BNE         OP_LSL                  * If bit = 1 then left
+    BEQ         OP_LSR                  * If bit = 0 then right
+
+OP_ASL_OR_ASR:
+    BTST        #8,D2
+    BNE         OP_ASL                  * If bit = 1 then left
+    BEQ         OP_ASR                  * If bit = 0 then right
+
+OP_ROL_OR_ROR:
+    BTST        #8,D2
+    BNE         OP_ROL                  * If bit = 1 then left
+    BEQ         OP_ROR                  * If bit = 0 then right
+
  
 
+OP_NOP:
 
 OP_MOVE_BYTE:
 
@@ -149,26 +187,45 @@ OP_MOVEA_WORD:
 
 OP_MOVEA_LONG:
 
+OP_MOVEM:
+
+OP_MOVEQ:
+
+OP_LEA:
+
 OP_ADD:
 
 OP_ADDA:
 
 OP_ADDQ:
 
-OP_MOVEQ:
+OP_SUB:
 
 OP_OR:
 
-OP_SUB:
-
 OP_AND:
-
-OP_NOP:
 
 OP_JSR:
 
-
 OP_RTS:
+
+OP_BGT:
+
+OP_BEQ:
+
+OP_BLT:
+
+OP_LSL:
+
+OP_LSR:
+
+OP_ASL:
+
+OP_ASR:
+
+OP_ROL:
+
+OP_ROR:
 
 
 *************************
