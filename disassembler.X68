@@ -10,24 +10,26 @@
 *-----------------------------------------------------------
 * Registers
 *-----------------------------------------------------------
-* D0 - DX = Free
+* D0 = System trap codes
+* D6, D7 = Pass args
 * 
-* 
-* 
+* A1 = Print strings
+* A6 = Pass addressing arguments
+* A7 = Stack pointer
 *-----------------------------------------------------------
 
 
 *************************
 *      Constants        *
 *************************
-Addr1           EQU     $5000
-Addr2           EQU     $5008 * difference of 4 or 8?
 CR                  EQU     $0D     * Ascii for carriage return
 LF                  EQU     $0D     * Ascii for carriage return
-MSG_INVALID_OP          DC.B        'Invalid op code: ',CR,LF,0
-IntroMsg        DC.B    'Please enter start and end hexadecimal addresses, one after the other: ',0
-OverflowError   DC.B    'Overflow Error',CR,LF,0
-ErrorMsg        DC.B    'Error: Invalid characters were entered. Please try again.',CR,LF,0
+StartAddress        EQU     $5000
+EndAddress          EQU     $5008   * difference of 4 or 8?
+MSG_INVALID_OP      DC.B    'Invalid op code: ',CR,LF,0
+IntroMsg            DC.B    'Please enter start and end hexadecimal addresses, one after the other: ',0
+OverflowError       DC.B    'Overflow Error',CR,LF,0
+ErrorMsg            DC.B    'Error: Invalid characters were entered. Please try again.',CR,LF,0
 
 *************************
 *  Global subrountines  *
@@ -44,17 +46,17 @@ CLEAR_ALL_DATA_REGISTERS:
     CLR         D7
     RTS
 
-CLEAR_INPUT_DATA_REGISTERS:
-    CLR         D1
-    CLR         D2
-    CLR         D3
+CLEAR_ARGS_DATA_REGISTERS:
+    CLR         D6
+    CLR         D7
     RTS
 
 CLEAR_OPEN_DATA_REGISTERS:
+    CLR         D1
+    CLR         D2
+    CLR         D3
     CLR         D4
     CLR         D5
-    CLR         D6
-    CLR         D7
     RTS
 
 GLOBAL_RTS:
@@ -66,10 +68,6 @@ GLOBAL_RTS:
 
     ORG    $1000
 
-*************************
-*         I/O           *
-*************************
-
 START:                  ; first instruction of program
         JSR         GET_USER_INPUT  * Get user input as string
         
@@ -79,6 +77,10 @@ START:                  ; first instruction of program
         MOVE.B      #9,D2           * Number of digits to be read, subtracted each iteration
         MOVE.B      #1,D7           * Set that we are on the first number
         BRA         ASCII_TO_HEX    * Branch to converting number to hex
+
+*************************
+*         I/O           *
+*************************
     
 GET_USER_INPUT:     * Get user hex input
         LEA         IntroMsg,A1     * Load intro message into A1
@@ -128,7 +130,7 @@ ASCII_TO_HEX:       * Convert ASCII values to hex
 CHECK_LETTER:       * Check if in valid letter range
         CMP.B       #$47,D3     * Check if letter is valid
         BLT         CONFIRM_LETTER  * Find exact letter
-        BGE         INVALID
+        BGE         INVALID_INPUT
         
 CONFIRM_LETTER:     * Find exact letter
         SUB.B       #$37,D3     * Subtract 37 to convert ASCII to hex
@@ -140,7 +142,7 @@ CONFIRM_LETTER:     * Find exact letter
 CHECK_NUMBER:       * Check if in valid number range
         CMP.B       #$2F,D3     * Check if valid number
         BGT         CONFIRM_NUMBER  * Branch to get value of exact number
-        BLE         INVALID     * Branch to error case
+        BLE         INVALID_INPUT     * Branch to error case
 
 
 CONFIRM_NUMBER:     * Confirm what number it exactly is
@@ -193,15 +195,15 @@ ALL_NUMBERS_DONE:
 *************************
 
 * Will attempt to discover what the opcode in D2 is and will call a subrountine to execute based on that opcode
-* Requires: opcode binary is in D2
+* Requires: opcode binary is in D7
 *   Uses:   D3,D4
 GET_OP_CODE:
-    MOVE.W      D2,D3
+    MOVE.W      D7,D3
     AND.L       #$0000F000,D3           * We only want to test the instructions first nibble, get rid of all other bits
     LSR.L       #8,D3
     LSR.L       #4,D3
 
-    MOVE.W      D2,D4                   * For inconclusive nibbles then we need to check the next nibble (aka second byte from the right)
+    MOVE.W      D7,D4                   * For inconclusive nibbles then we need to check the next nibble (aka second byte from the right)
     LSR.L       #8,D4                   * Get rid of the right most byte and replace it with the left most
     
     CMP.B       #$00,D3                 * Check if nibble = 0 - INVALID
@@ -257,9 +259,9 @@ OP_NIBBLE_4:    * NOP, MOVEM, LEA, JSR, RTS
     BRA         OP_LEA                  * If no 1 at 8th bit then default to LEA <--- CHANGE TO CATCH FALSE POSITIVES
 
 OP_BYTE_4E:     * NOP, JSR, RTS
-    CMP.W       #$4E75,D2               * 4E75 = RTS
+    CMP.W       #$4E75,D7               * 4E75 = RTS
     BEQ         OP_RTS 
-    CMP.W       #$4E71,D2               * 4E71 = NOP
+    CMP.W       #$4E71,D7               * 4E71 = NOP
     BEQ         OP_NOP
     BRA         OP_JSR                  * Default: JSR <--- CHANGE TO CATCH FALSE POSITIVES
 
@@ -276,7 +278,7 @@ OP_NIBBLE_6:    * BGT, BEQ, BLE
 OP_NIBBLE_D:    * ADD, ADDA
 
 OP_NIBBLE_E:    * LSL, LSR, ASL, ASR, ROL, ROR
-    MOVE.W      D2,D4                   * To check between if it's LS, AS or RO we need to check the 3rd and 4th bits
+    MOVE.W      D7,D4                   * To check between if it's LS, AS or RO we need to check the 3rd and 4th bits
     LSR.L       #3,D4                   * Move the bits we need to the right most places
     AND.W       #%0000000000000011,D4   * Get rid of all other bits
                                         * Note to compare Left or Right use the 8th bit of D2
@@ -290,17 +292,17 @@ OP_NIBBLE_E:    * LSL, LSR, ASL, ASR, ROL, ROR
     BRA         INVALID_OP              * If bits are 10 = INVALID
 
 OP_LSL_OR_LSR:
-    BTST        #8,D2
+    BTST        #8,D7
     BNE         OP_LSL                  * If bit = 1 then left
     BEQ         OP_LSR                  * If bit = 0 then right
 
 OP_ASL_OR_ASR:
-    BTST        #8,D2
+    BTST        #8,D7
     BNE         OP_ASL                  * If bit = 1 then left
     BEQ         OP_ASR                  * If bit = 0 then right
 
 OP_ROL_OR_ROR:
-    BTST        #8,D2
+    BTST        #8,D7
     BNE         OP_ROL                  * If bit = 1 then left
     BEQ         OP_ROR                  * If bit = 0 then right
 
@@ -362,7 +364,7 @@ OP_ROR:
 *************************
 *        Other          *
 *************************
-INVALID:
+INVALID_INPUT:
         LEA         ErrorMsg,A1 * Load error message
         JSR         PRINT_MSG_ENDL  *Print error message
         
