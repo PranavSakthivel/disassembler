@@ -30,7 +30,7 @@ LF                  EQU     $0D     * Ascii for carriage return
 StartAddress        EQU     $5000
 EndAddress          EQU     $5008   * difference of 4 or 8?
 EndlMsg             DC.B    '',CR,LF,0
-MSG_INVALID_OP      DC.B    'Invalid op code: ',CR,LF,0
+MSG_INVALID_OP      DC.B    'Invalid op code: ',0
 IntroMsg            DC.B    'Please enter start and end hexadecimal addresses, one after the other: ',0
 OverflowError       DC.B    'Overflow Error',CR,LF,0
 MSG_INVALID_INPUT   DC.B    'Error: Invalid characters were entered. Please try again.',CR,LF,0
@@ -138,7 +138,7 @@ GET_INPUT_AS_STRING:                    * Get input from user as string
 
 PRINT_NEWLINE:
         LEA         EndlMsg,A1
-        JSR         PRINT_MSG
+        JSR         PRINT_MSG_ENDL
 
         RTS
         
@@ -236,7 +236,7 @@ INVALID_IO:
 *   Uses:   D3,D4
 GET_OP_CODE:
     MOVE.W      D7,D3
-    AND.L       #$0000F000,D3           * We only want to test the instructions first nibble, get rid of all other bits
+    AND.L       #$0000F000,D3           * We only want to cehck if the instructions first nibble, get rid of all other bits
     LSR.L       #8,D3
     LSR.L       #4,D3
 
@@ -484,38 +484,61 @@ RUN_ALL_TESTS:
     RTS
 
 CHECK_EACH_OP_NIBBLE:
+    JSR         TEST_INVALID_NIBBLES
+    JSR         TEST_SINGLE_CHOICE_NIBBLES
+    RTS
+
+TEST_INVALID_NIBBLES:
     MOVE.L      #$00000000,D7
-    JSR         GET_OP_CODE             * Check opcode 0
-    ADD.L       #$00001000,D7
-    JSR         GET_OP_CODE             * Check opcode 1
-    ADD.L       #$00001000,D7
-    * JSR         GET_OP_CODE             * Check opcode 2
-    ADD.L       #$00001000,D7
-    * JSR         GET_OP_CODE             * Check opcode 3
-    ADD.L       #$00001000,D7
-    JSR         GET_OP_CODE             * Check opcode 4
-    ADD.L       #$00001000,D7
-    JSR         GET_OP_CODE             * Check opcode 5
-    ADD.L       #$00001000,D7
-    JSR         GET_OP_CODE             * Check opcode 6
-    ADD.L       #$00001000,D7
-    JSR         GET_OP_CODE             * Check opcode 7
-    ADD.L       #$00001000,D7
-    JSR         GET_OP_CODE             * Check opcode 8
-    ADD.L       #$00001000,D7
-    JSR         GET_OP_CODE             * Check opcode 9
-    ADD.L       #$00001000,D7
-    JSR         GET_OP_CODE             * Check opcode A
-    ADD.L       #$00001000,D7
-    JSR         GET_OP_CODE             * Check opcode B
-    ADD.L       #$00001000,D7
-    JSR         GET_OP_CODE             * Check opcode C
-    ADD.L       #$00001000,D7
-    * JSR         GET_OP_CODE             * Check opcode D
-    ADD.L       #$00001000,D7
-    JSR         GET_OP_CODE             * Check opcode E
-    ADD.L       #$00001000,D7
-    JSR         GET_OP_CODE             * Check opcode F
+    JSR         INVALID_OP
+    JSR         TEST_RUN_NIBBLE_TEST
+    MOVE.L      #$0000A000,D7
+    JSR         INVALID_OP
+    JSR         TEST_RUN_NIBBLE_TEST
+    MOVE.L      #$0000B000,D7
+    JSR         INVALID_OP
+    JSR         TEST_RUN_NIBBLE_TEST
+    MOVE.L      #$0000F000,D7
+    JSR         INVALID_OP
+    JSR         TEST_RUN_NIBBLE_TEST
+    RTS
+
+TEST_SINGLE_CHOICE_NIBBLES:
+    MOVE.L      #$00001000,D7
+    JSR         OP_MOVE_BYTE
+    JSR         TEST_RUN_NIBBLE_TEST
+    MOVE.L      #$00005000,D7
+    JSR         OP_ADDQ
+    JSR         TEST_RUN_NIBBLE_TEST
+    MOVE.L      #$00007000,D7
+    JSR         OP_MOVEQ
+    JSR         TEST_RUN_NIBBLE_TEST
+    MOVE.L      #$00008000,D7
+    JSR         OP_OR
+    JSR         TEST_RUN_NIBBLE_TEST
+    MOVE.L      #$00009000,D7
+    JSR         OP_SUB
+    JSR         TEST_RUN_NIBBLE_TEST
+    MOVE.L      #$0000C000,D7
+    JSR         OP_AND
+    JSR         TEST_RUN_NIBBLE_TEST
+    RTS
+
+TEST_NIBBLE_2:
+
+TEST_NIBBLE_3:
+
+TEST_NIBBLE_4:
+
+TEST_NIBBLE_6:
+
+TEST_NIBBLE_D:
+
+TEST_NIBBLE_E:
+
+TEST_RUN_NIBBLE_TEST:
+    JSR         GET_OP_CODE
+    JSR         PRINT_NEWLINE
     RTS
 
 *************************
