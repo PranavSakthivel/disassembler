@@ -105,7 +105,6 @@ GLOBAL_RTS:
 START:                  ; first instruction of program
     JSR             RUN_ALL_TESTS
     JMP             DONE
-    MOVEA.W         A1,A2
 
 *************************
 *         I/O           *
