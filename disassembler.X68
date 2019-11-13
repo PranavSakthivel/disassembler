@@ -103,8 +103,8 @@ GLOBAL_RTS:
     ORG    $1000
 
 START:                  ; first instruction of program
-        JSR             RUN_ALL_TESTS
-        JMP             DONE
+    JSR             RUN_ALL_TESTS
+    JMP             DONE
 
 *************************
 *         I/O           *
@@ -214,6 +214,12 @@ GET_2ND_NUMBER:
         BRA         ASCII_TO_HEX        * Branch to converting number to hex
         
 ALL_NUMBERS_DONE:
+
+INVALID_IO:
+        LEA         MSG_INVALID_INPUT,A1         * Load error message
+        JSR         PRINT_MSG_ENDL      * Print error message
+        
+        BRA         START               * Restart program
 
 *************************
 *  Op Codes branching   *
@@ -464,22 +470,6 @@ OP_ROR:
     JSR         PRINT_MSG
     RTS
 
-
-*************************
-*        Other          *
-*************************
-INVALID_IO:
-        LEA         MSG_INVALID_INPUT,A1         * Load error message
-        JSR         PRINT_MSG_ENDL      * Print error message
-        
-        BRA         START               * Restart program
-
-DONE:
-    SIMHALT                 ; halt simulator
-
-
-    END    START        ; last line of source
-
 *************************
 *        Tests          *
 *************************
@@ -521,6 +511,14 @@ CHECK_EACH_OP_NIBBLE:
     ADD.L       #$00001000,D7
     JSR         GET_OP_CODE             * Check opcode F
     RTS
+
+*************************
+*         End           *
+*************************
+DONE:
+    SIMHALT                 ; halt simulator
+
+    END    START        ; last line of source
 
 
 
