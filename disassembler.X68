@@ -105,6 +105,7 @@ GLOBAL_RTS:
 START:                  ; first instruction of program
     JSR             RUN_ALL_TESTS
     JMP             DONE
+    MOVEA.W         A1,A2
 
 *************************
 *         I/O           *
@@ -236,7 +237,7 @@ INVALID_IO:
 *   Uses:   D3,D4
 GET_OP_CODE:
     MOVE.W      D7,D3
-    AND.L       #$0000F000,D3           * We only want to cehck if the instructions first nibble, get rid of all other bits
+    AND.L       #$0000F000,D3           * We only want to check if the instructions first nibble, get rid of all other bits
     LSR.L       #8,D3
     LSR.L       #4,D3
 
@@ -284,11 +285,25 @@ INVALID_OP:
     RTS
 
 OP_NIBBLE_2:    * MOVE.L, MOVEA.L
+    MOVE.W      D7,D4                   * To check between if it's MOVE or MOVEA we must check its bits at indices 6, 7 and 8
+    LSR.L       #6,D4                   * Move most important bits to the right
+    AND.L       #$00000007,D4           * AND with 00000007 leaves us with only the three right most bits
+
+    CMP.B       #01,D4                  * If the 3 bits are 001 then it's MOVEA, else MOVE
+    BEQ         OP_MOVEA_LONG
+    BNE         OP_MOVE_LONG
 
 OP_NIBBLE_3:    * MOVE.W, MOVEA.W
+    MOVE.W      D7,D4                   * To check between if it's MOVE or MOVEA we must check its bits at indices 6, 7 and 8
+    LSR.L       #6,D4                   * Move most important bits to the right
+    AND.L       #$00000007,D4           * AND with 00000007 leaves us with only the three right most bits
+
+    CMP.B       #01,D4                  * If the 3 bits are 001 then it's MOVEA, else MOVE
+    BEQ         OP_MOVEA_WORD
+    BNE         OP_MOVE_WORD
 
 OP_NIBBLE_4:    * NOP, MOVEM, LEA, JSR, RTS
-    CMP.B       #$4E,D3                 * 4E = NOP, JSR, RTS
+    CMP.B       #$4E,D4                 * 4E = NOP, JSR, RTS
     BEQ         OP_BYTE_4E
     
     BTST        #8,D3                   * MOVEM is the only nibble 4 with a 1 as the 8th bit
@@ -323,7 +338,7 @@ OP_NIBBLE_E:    * LSL, LSR, ASL, ASR, ROL, ROR
     BEQ         OP_LSL_OR_LSR
     CMP.B       #$00,D4                 * If bits are 00 = AS
     BEQ         OP_ASL_OR_ASR
-    CMP.B       #$02,D4                 * If bits are 11 = RO
+    CMP.B       #$03,D4                 * If bits are 11 = RO
     BEQ         OP_ROL_OR_ROR
 
     BRA         INVALID_OP              * If bits are 10 = INVALID
@@ -486,6 +501,11 @@ RUN_ALL_TESTS:
 CHECK_EACH_OP_NIBBLE:
     JSR         TEST_INVALID_NIBBLES
     JSR         TEST_SINGLE_CHOICE_NIBBLES
+    JSR         TEST_NIBBLE_2
+    JSR         TEST_NIBBLE_3
+    JSR         TEST_NIBBLE_4
+    JSR         TEST_NIBBLE_6
+    JSR         TEST_NIBBLE_E
     RTS
 
 TEST_INVALID_NIBBLES:
@@ -525,16 +545,72 @@ TEST_SINGLE_CHOICE_NIBBLES:
     RTS
 
 TEST_NIBBLE_2:
+    MOVE.L      #$00002A03,D7
+    JSR         OP_MOVE_LONG
+    JSR         TEST_RUN_NIBBLE_TEST
+    MOVE.L      #$00002449,D7
+    JSR         OP_MOVEA_LONG
+    JSR         TEST_RUN_NIBBLE_TEST
+    RTS
 
 TEST_NIBBLE_3:
+    MOVE.L      #$00003607,D7
+    JSR         OP_MOVE_WORD
+    JSR         TEST_RUN_NIBBLE_TEST
+    MOVE.L      #$00003449,D7
+    JSR         OP_MOVEA_WORD
+    JSR         TEST_RUN_NIBBLE_TEST
+    RTS
 
 TEST_NIBBLE_4:
+    MOVE.L      #$00004E75,D7
+    JSR         OP_RTS
+    JSR         TEST_RUN_NIBBLE_TEST
+    MOVE.L      #$00004E71,D7
+    JSR         OP_NOP
+    JSR         TEST_RUN_NIBBLE_TEST
+    MOVE.L      #$00004E00,D7
+    JSR         OP_JSR
+    JSR         TEST_RUN_NIBBLE_TEST
+    RTS
 
 TEST_NIBBLE_6:
+    MOVE.L      #$00006E00,D7
+    JSR         OP_BGT
+    JSR         TEST_RUN_NIBBLE_TEST
+    MOVE.L      #$00006700,D7
+    JSR         OP_BEQ
+    JSR         TEST_RUN_NIBBLE_TEST
+    MOVE.L      #$00006F00,D7
+    JSR         OP_BLT
+    JSR         TEST_RUN_NIBBLE_TEST
+    RTS
 
 TEST_NIBBLE_D:
 
 TEST_NIBBLE_E:
+    MOVE.L      #$0000E10F,D7
+    JSR         OP_LSL
+    JSR         TEST_RUN_NIBBLE_TEST
+    MOVE.L      #$0000E00F,D7
+    JSR         OP_LSR
+    JSR         TEST_RUN_NIBBLE_TEST
+
+    MOVE.L      #$0000E100,D7
+    JSR         OP_ASL
+    JSR         TEST_RUN_NIBBLE_TEST
+    MOVE.L      #$0000E000,D7
+    JSR         OP_ASR
+    JSR         TEST_RUN_NIBBLE_TEST
+
+    MOVE.L      #$0000E75C,D7
+    JSR         OP_ROL
+    JSR         TEST_RUN_NIBBLE_TEST
+    MOVE.L      #$0000E65C,D7
+    JSR         OP_ROR
+    JSR         TEST_RUN_NIBBLE_TEST
+
+    RTS
 
 TEST_RUN_NIBBLE_TEST:
     JSR         GET_OP_CODE
