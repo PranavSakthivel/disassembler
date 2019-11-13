@@ -103,14 +103,8 @@ GLOBAL_RTS:
     ORG    $1000
 
 START:                  ; first instruction of program
-        JSR         GET_USER_INPUT      * Get user input as string
-        
-        MOVEA.L     A1,A2               * Move A1 into A2 so value does not get overwritten
-        MOVEA.L     #$2000,A3           * Starting address for storing Hex number at A3
-
-        MOVE.B      #9,D2               * Number of digits to be read, subtracted each iteration
-        MOVE.B      #1,D7               * Set that we are on the first number
-        BRA         ASCII_TO_HEX        * Branch to converting number to hex
+        JSR             RUN_ALL_TESTS
+        JMP             DONE
 
 *************************
 *         I/O           *
