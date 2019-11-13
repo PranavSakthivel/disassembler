@@ -37,6 +37,36 @@ OverflowError       DC.B    'Overflow Error',CR,LF,0
 ErrorMsg            DC.B    'Error: Invalid characters were entered. Please try again.',CR,LF,0
 
 *************************
+*      Opcode Messages  *
+*************************
+
+MoveBMsg            DC.B    'MOVE.B '
+MoveWMsg            DC.B    'MOVE.W '
+MoveLMsg            DC.B    'MOVE.L '
+NopMsg              DC.B    'NOP '
+MoveaWMsg           DC.B    'MOVEA.W '
+MoveaLMsg           DC.B    'MOVEA.L '
+MovemMsg            DC.B    'MOVEM '
+LeaMsg              DC.B    'LEA '
+AddMsg              DC.B    'ADD '
+AddaMsg             DC.B    'ADDA '
+AddqMsg             DC.B    'ADDQ '
+SubMsg              DC.B    'SUB '
+OrMsg               DC.B    'OR '
+AndMsg              DC.B    'AND '
+JsrMsg              DC.B    'JSR '
+RtsMsg              DC.B    'RTS '
+BgtMsg              DC.B    'BGT '
+BeqMsg              DC.B    'BEQ '
+BltMsg              DC.B    'BLT '
+LslMsg              DC.B    'LSL '
+LsrMsg              DC.B    'LSR '
+AslMsg              DC.B    'ASL '
+AsrMsg              DC.B    'ASR '
+RolMsg              DC.B    'ROL '
+RorMsg              DC.B    'ROR '
+
+*************************
 *  Global subrountines  *
 *************************
 
@@ -311,59 +341,113 @@ OP_ROL_OR_ROR:
     BNE         OP_ROL                  * If bit = 1 then left
     BEQ         OP_ROR                  * If bit = 0 then right
 
- 
+*************************
+*       Opcode Branching*
+*************************
 
 OP_NOP:
+    LEA         NopMsg,A1
+    JSR         PRINT_MSG
 
 OP_MOVE_BYTE:
+    LEA         MovebMsg,A1
+    JSR         PRINT_MSG
 
 OP_MOVE_WORD:
+    LEA         MovewMsg,A1
+    JSR         PRINT_MSG
 
 OP_MOVE_LONG:
+    LEA         MovelMsg,A1
+    JSR         PRINT_MSG
 
 OP_MOVEA_WORD:
+    LEA         MoveawMsg,A1
+    JSR         PRINT_MSG
 
 OP_MOVEA_LONG:
+    LEA         Moveal,A1
+    JSR         PRINT_MSG
 
 OP_MOVEM:
+    LEA         MovemMsg,A1
+    JSR         PRINT_MSG
 
 OP_MOVEQ:
+    LEA         MoveqMsg,A1
+    JSR         PRINT_MSG
 
 OP_LEA:
-
+    LEA         LeaMsg,A1
+    JSR         PRINT_MSG
+    
 OP_ADD:
-
+    LEA         AddMsg,A1
+    JSR         PRINT_MSG
+    
 OP_ADDA:
+    LEA         AddaMsg,A1
+    JSR         PRINT_MSG
 
 OP_ADDQ:
+    LEA         AddqMsg,A1
+    JSR         PRINT_MSG
 
 OP_SUB:
+    LEA         SubMsg,A1
+    JSR         PRINT_MSG
 
 OP_OR:
+    LEA         OrMsg,A1
+    JSR         PRINT_MSG
 
 OP_AND:
+    LEA         AndMsg,A1
+    JSR         PRINT_MSG
 
 OP_JSR:
+    LEA         JsrMsg,A1
+    JSR         PRINT_MSG
 
 OP_RTS:
+    LEA         RtsMsg,A1
+    JSR         PRINT_MSG
 
 OP_BGT:
+    LEA         BgtMsg,A1
+    JSR         PRINT_MSG    
 
 OP_BEQ:
+    LEA         BeqMsg,A1
+    JSR         PRINT_MSG
 
 OP_BLT:
+    LEA         BltMsg,A1
+    JSR         PRINT_MSG
 
 OP_LSL:
+    LEA         LslMsg,A1
+    JSR         PRINT_MSG
 
 OP_LSR:
+    LEA         LsrMsg,A1
+    JSR         PRINT_MSG
 
 OP_ASL:
+    LEA         AslMsg,A1
+    JSR         PRINT_MSG
 
 OP_ASR:
+    LEA         AsrMsg,A1
+    JSR         PRINT_MSG
 
 OP_ROL:
+    LEA         RolMsg,A1
+    JSR         PRINT_MSG
 
 OP_ROR:
+    LEA         RorMsg,A1
+    JSR         PRINT_MSG
 
 
 *************************
@@ -380,6 +464,7 @@ DONE:
 
 
     END    START        ; last line of source
+
 
 
 
