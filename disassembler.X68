@@ -10,8 +10,6 @@
 *   The list of instructions and addressing modes is given at Required Opcodes page.
 *-----------------------------------------------------------
 
-
-
 *-----------------------------------------------------------
 * Global Registers
 *-----------------------------------------------------------
@@ -34,7 +32,7 @@ EndAddress          EQU     $5008   * difference of 4 or 8?
 MSG_INVALID_OP      DC.B    'Invalid op code: ',CR,LF,0
 IntroMsg            DC.B    'Please enter start and end hexadecimal addresses, one after the other: ',0
 OverflowError       DC.B    'Overflow Error',CR,LF,0
-ErrorMsg            DC.B    'Error: Invalid characters were entered. Please try again.',CR,LF,0
+MSG_INVALID_INPUT   DC.B    'Error: Invalid characters were entered. Please try again.',CR,LF,0
 
 *************************
 *      Opcode Messages  *
@@ -166,27 +164,24 @@ ASCII_TO_HEX:       * Convert ASCII values to hex
 CHECK_LETTER:       * Check if in valid letter range
         CMP.B       #$47,D3             * Check if letter is valid
         BLT         CONFIRM_LETTER      * Find exact letter
-        BGE         INVALID
+        BGE         INVALID_IO
         
 CONFIRM_LETTER:     * Find exact letter
         SUB.B       #$37,D3             * Subtract 37 to convert ASCII to hex
         MOVE.B      D3,(A3)+            * Add the hex digit to the address register, increment address register
        
-        
         BRA         ASCII_TO_HEX        * Continue converting to hex
         
 CHECK_NUMBER:       * Check if in valid number range
         CMP.B       #$2F,D3             * Check if valid number
         BGT         CONFIRM_NUMBER      * Branch to get value of exact number
-        BLE         INVALID             * Branch to error case
-
+        BLE         INVALID_IO          * Branch to error case
 
 CONFIRM_NUMBER:     * Confirm what number it exactly is
         SUB.B       #$30,D3             * Subtract $30 from D3 to convert to hex
         MOVE.B      D3,(A3)+            * Move to A3 and post increment
                 
         BRA         ASCII_TO_HEX
-
         
 DONE_WITH_HEX:  
         MOVE.B      #0,D2               * For loop constant
@@ -349,38 +344,47 @@ OP_ROL_OR_ROR:
 OP_NOP:
     LEA         NopMsg,A1
     JSR         PRINT_MSG
+    RTS
 
 OP_MOVE_BYTE:
     LEA         MovebMsg,A1
     JSR         PRINT_MSG
+    RTS
 
 OP_MOVE_WORD:
     LEA         MovewMsg,A1
     JSR         PRINT_MSG
+    RTS
 
 OP_MOVE_LONG:
     LEA         MovelMsg,A1
     JSR         PRINT_MSG
+    RTS
 
 OP_MOVEA_WORD:
     LEA         MoveawMsg,A1
     JSR         PRINT_MSG
+    RTS
 
 OP_MOVEA_LONG:
     LEA         MovealMsg,A1
     JSR         PRINT_MSG
+    RTS
 
 OP_MOVEM:
     LEA         MovemMsg,A1
     JSR         PRINT_MSG
+    RTS
 
 OP_MOVEQ:
     LEA         MoveqMsg,A1
     JSR         PRINT_MSG
+    RTS
 
 OP_LEA:
     LEA         LeaMsg,A1
     JSR         PRINT_MSG
+    RTS
     
 OP_ADD:
     LEA         AddMsg,A1
@@ -389,73 +393,89 @@ OP_ADD:
 OP_ADDA:
     LEA         AddaMsg,A1
     JSR         PRINT_MSG
+    RTS
 
 OP_ADDQ:
     LEA         AddqMsg,A1
     JSR         PRINT_MSG
+    RTS
 
 OP_SUB:
     LEA         SubMsg,A1
     JSR         PRINT_MSG
+    RTS
 
 OP_OR:
     LEA         OrMsg,A1
     JSR         PRINT_MSG
+    RTS
 
 OP_AND:
     LEA         AndMsg,A1
     JSR         PRINT_MSG
+    RTS
 
 OP_JSR:
     LEA         JsrMsg,A1
     JSR         PRINT_MSG
+    RTS
 
 OP_RTS:
     LEA         RtsMsg,A1
     JSR         PRINT_MSG
+    RTS
 
 OP_BGT:
     LEA         BgtMsg,A1
-    JSR         PRINT_MSG    
+    JSR         PRINT_MSG
+    RTS 
 
 OP_BEQ:
     LEA         BeqMsg,A1
     JSR         PRINT_MSG
+    RTS
 
 OP_BLT:
     LEA         BltMsg,A1
     JSR         PRINT_MSG
+    RTS
 
 OP_LSL:
     LEA         LslMsg,A1
     JSR         PRINT_MSG
+    RTS
 
 OP_LSR:
     LEA         LsrMsg,A1
     JSR         PRINT_MSG
+    RTS
 
 OP_ASL:
     LEA         AslMsg,A1
     JSR         PRINT_MSG
+    RTS
 
 OP_ASR:
     LEA         AsrMsg,A1
     JSR         PRINT_MSG
+    RTS
 
 OP_ROL:
     LEA         RolMsg,A1
     JSR         PRINT_MSG
+    RTS
 
 OP_ROR:
     LEA         RorMsg,A1
     JSR         PRINT_MSG
+    RTS
 
 
 *************************
 *        Other          *
 *************************
-INVALID:
-        LEA         ErrorMsg,A1         * Load error message
+INVALID_IO:
+        LEA         MSG_INVALID_INPUT,A1         * Load error message
         JSR         PRINT_MSG_ENDL      * Print error message
         
         BRA         START               * Restart program
