@@ -227,7 +227,7 @@ GET_2ND_NUMBER:
 ALL_NUMBERS_DONE:
 
 *************************
-*       Op Codes        *
+*  Op Codes branching   *
 *************************
 
 * Will attempt to discover what the opcode in D2 is and will call a subrountine to execute based on that opcode
@@ -343,7 +343,7 @@ OP_ROL_OR_ROR:
     BEQ         OP_ROR                  * If bit = 0 then right
 
 *************************
-*       Opcode Branching*
+*        Opcode         *
 *************************
 
 OP_NOP:
