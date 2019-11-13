@@ -47,6 +47,7 @@ NopMsg              DC.B    'NOP '
 MoveaWMsg           DC.B    'MOVEA.W '
 MoveaLMsg           DC.B    'MOVEA.L '
 MovemMsg            DC.B    'MOVEM '
+MoveqMsg            DC.B    'MOVEQ '
 LeaMsg              DC.B    'LEA '
 AddMsg              DC.B    'ADD '
 AddaMsg             DC.B    'ADDA '
@@ -366,7 +367,7 @@ OP_MOVEA_WORD:
     JSR         PRINT_MSG
 
 OP_MOVEA_LONG:
-    LEA         Moveal,A1
+    LEA         MovealMsg,A1
     JSR         PRINT_MSG
 
 OP_MOVEM:
