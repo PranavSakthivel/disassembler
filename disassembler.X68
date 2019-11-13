@@ -227,7 +227,7 @@ GET_2ND_NUMBER:
 ALL_NUMBERS_DONE:
 
 *************************
-*       Op Codes        *
+*  Op Codes branching   *
 *************************
 
 * Will attempt to discover what the opcode in D2 is and will call a subrountine to execute based on that opcode
@@ -343,7 +343,7 @@ OP_ROL_OR_ROR:
     BEQ         OP_ROR                  * If bit = 0 then right
 
 *************************
-*       Opcode Branching*
+*        Opcode         *
 *************************
 
 OP_NOP:
@@ -466,8 +466,47 @@ DONE:
 
     END    START        ; last line of source
 
+*************************
+*        Tests          *
+*************************
+RUN_ALL_TESTS:
+    JSR         CHECK_EACH_OP_NIBBLE
+    RTS
 
-
+CHECK_EACH_OP_NIBBLE:
+    MOVE.L      #$00000000,D7
+    JSR         GET_OP_CODE             * Check opcode 0
+    ADD.L       #$00001000,D7
+    JSR         GET_OP_CODE             * Check opcode 1
+    ADD.L       #$00001000,D7
+    * JSR         GET_OP_CODE             * Check opcode 2
+    ADD.L       #$00001000,D7
+    * JSR         GET_OP_CODE             * Check opcode 3
+    ADD.L       #$00001000,D7
+    JSR         GET_OP_CODE             * Check opcode 4
+    ADD.L       #$00001000,D7
+    JSR         GET_OP_CODE             * Check opcode 5
+    ADD.L       #$00001000,D7
+    JSR         GET_OP_CODE             * Check opcode 6
+    ADD.L       #$00001000,D7
+    JSR         GET_OP_CODE             * Check opcode 7
+    ADD.L       #$00001000,D7
+    JSR         GET_OP_CODE             * Check opcode 8
+    ADD.L       #$00001000,D7
+    JSR         GET_OP_CODE             * Check opcode 9
+    ADD.L       #$00001000,D7
+    JSR         GET_OP_CODE             * Check opcode A
+    ADD.L       #$00001000,D7
+    JSR         GET_OP_CODE             * Check opcode B
+    ADD.L       #$00001000,D7
+    JSR         GET_OP_CODE             * Check opcode C
+    ADD.L       #$00001000,D7
+    * JSR         GET_OP_CODE             * Check opcode D
+    ADD.L       #$00001000,D7
+    JSR         GET_OP_CODE             * Check opcode E
+    ADD.L       #$00001000,D7
+    JSR         GET_OP_CODE             * Check opcode F
+    RTS
 
 
 
