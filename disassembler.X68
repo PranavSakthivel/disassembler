@@ -29,6 +29,7 @@ CR                  EQU     $0D     * Ascii for carriage return
 LF                  EQU     $0D     * Ascii for carriage return
 StartAddress        EQU     $5000
 EndAddress          EQU     $5008   * difference of 4 or 8?
+EndlMsg             DC.B    '',CR,LF,0
 MSG_INVALID_OP      DC.B    'Invalid op code: ',CR,LF,0
 IntroMsg            DC.B    'Please enter start and end hexadecimal addresses, one after the other: ',0
 OverflowError       DC.B    'Overflow Error',CR,LF,0
@@ -37,33 +38,32 @@ MSG_INVALID_INPUT   DC.B    'Error: Invalid characters were entered. Please try 
 *************************
 *      Opcode Messages  *
 *************************
-
-MoveBMsg            DC.B    'MOVE.B '
-MoveWMsg            DC.B    'MOVE.W '
-MoveLMsg            DC.B    'MOVE.L '
-NopMsg              DC.B    'NOP '
-MoveaWMsg           DC.B    'MOVEA.W '
-MoveaLMsg           DC.B    'MOVEA.L '
-MovemMsg            DC.B    'MOVEM '
-MoveqMsg            DC.B    'MOVEQ '
-LeaMsg              DC.B    'LEA '
-AddMsg              DC.B    'ADD '
-AddaMsg             DC.B    'ADDA '
-AddqMsg             DC.B    'ADDQ '
-SubMsg              DC.B    'SUB '
-OrMsg               DC.B    'OR '
-AndMsg              DC.B    'AND '
-JsrMsg              DC.B    'JSR '
-RtsMsg              DC.B    'RTS '
-BgtMsg              DC.B    'BGT '
-BeqMsg              DC.B    'BEQ '
-BltMsg              DC.B    'BLT '
-LslMsg              DC.B    'LSL '
-LsrMsg              DC.B    'LSR '
-AslMsg              DC.B    'ASL '
-AsrMsg              DC.B    'ASR '
-RolMsg              DC.B    'ROL '
-RorMsg              DC.B    'ROR '
+MoveBMsg            DC.B    'MOVE.B ',0
+MoveWMsg            DC.B    'MOVE.W ',0
+MoveLMsg            DC.B    'MOVE.L ',0
+NopMsg              DC.B    'NOP ',0
+MoveaWMsg           DC.B    'MOVEA.W ',0
+MoveaLMsg           DC.B    'MOVEA.L ',0
+MovemMsg            DC.B    'MOVEM ',0
+MoveqMsg            DC.B    'MOVEQ ',0
+LeaMsg              DC.B    'LEA ',0
+AddMsg              DC.B    'ADD ',0
+AddaMsg             DC.B    'ADDA ',0
+AddqMsg             DC.B    'ADDQ ',0
+SubMsg              DC.B    'SUB ',0
+OrMsg               DC.B    'OR ',0
+AndMsg              DC.B    'AND ',0
+JsrMsg              DC.B    'JSR ',0
+RtsMsg              DC.B    'RTS ',0
+BgtMsg              DC.B    'BGT ',0
+BeqMsg              DC.B    'BEQ ',0
+BltMsg              DC.B    'BLT ',0
+LslMsg              DC.B    'LSL ',0
+LsrMsg              DC.B    'LSR ',0
+AslMsg              DC.B    'ASL ',0
+AsrMsg              DC.B    'ASR ',0
+RolMsg              DC.B    'ROL ',0
+RorMsg              DC.B    'ROR ',0
 
 *************************
 *  Global subrountines  *
@@ -134,6 +134,12 @@ GET_INPUT_AS_STRING:                    * Get input from user as string
         MOVE.B      #2,D0               * Load code 2 into D0 to get string
         TRAP        #15                 * Execute code 2
         
+        RTS
+
+PRINT_NEWLINE:
+        LEA         EndlMsg,A1
+        JSR         PRINT_MSG
+
         RTS
         
 PRINT_NUM:          * Print number
@@ -519,6 +525,7 @@ DONE:
     SIMHALT                 ; halt simulator
 
     END    START        ; last line of source
+
 
 
 
