@@ -137,7 +137,7 @@ GET_INPUT_AS_STRING:                    * Get input from user as string
         RTS
 
 PRINT_NEWLINE:
-        LEA         EndlMsg,A1
+        LEA         EndlMsg,A1          * Prints a new line
         JSR         PRINT_MSG_ENDL
 
         RTS
@@ -240,6 +240,7 @@ GET_OP_CODE:
     LSR.L       #8,D3
     LSR.L       #4,D3
 
+    CLR         D4                      * Clear in case a long was previously stored here
     MOVE.W      D7,D4                   * For inconclusive nibbles then we need to check the next nibble (aka second byte from the right)
     LSR.L       #8,D4                   * Get rid of the right most byte and replace it with the left most
     
@@ -358,7 +359,7 @@ OP_ROL_OR_ROR:
     BEQ         OP_ROR                  * If bit = 0 then right
 
 *************************
-*        Opcode         *
+*   Opcode Printing     *
 *************************
 
 OP_NOP:
@@ -494,16 +495,20 @@ OP_ROR:
 *        Tests          *
 *************************
 RUN_ALL_TESTS:
-    JSR         CHECK_EACH_OP_NIBBLE
+    JSR         CHECK_EACH_OP
     RTS
 
-CHECK_EACH_OP_NIBBLE:
-    JSR         TEST_INVALID_NIBBLES
-    JSR         TEST_SINGLE_CHOICE_NIBBLES
-    JSR         TEST_NIBBLE_2
+* Runs get op code against a known opcode value to see if it is correctly found
+* Prints out what is expected followed by what is found. If these are different there is an issue
+
+CHECK_EACH_OP:
+    JSR         TEST_INVALID_NIBBLES            * Tests known invalid nibbles
+    JSR         TEST_SINGLE_CHOICE_NIBBLES      * Tests nibbles with only one possible value
+    JSR         TEST_NIBBLE_2                   * Following test tests nibbles that require more than just the first nibble to discover
     JSR         TEST_NIBBLE_3
     JSR         TEST_NIBBLE_4
     JSR         TEST_NIBBLE_6
+    * JSR         TEST_NIBBLE_D
     JSR         TEST_NIBBLE_E
     RTS
 
