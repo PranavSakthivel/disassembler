@@ -55,6 +55,7 @@ OrMsg               DC.B    'OR ',0
 AndMsg              DC.B    'AND ',0
 JsrMsg              DC.B    'JSR ',0
 RtsMsg              DC.B    'RTS ',0
+BraMsg              DC.B    'BRA ',0
 BgtMsg              DC.B    'BGT ',0
 BeqMsg              DC.B    'BEQ ',0
 BltMsg              DC.B    'BLT ',0
@@ -222,7 +223,7 @@ GET_2ND_NUMBER:
 ALL_NUMBERS_DONE:
 
 INVALID_IO:
-        LEA         MSG_INVALID_INPUT,A1         * Load error message
+        LEA         MSG_INVALID_INPUT,A1    * Load error message
         JSR         PRINT_MSG_ENDL      * Print error message
         
         BRA         START               * Restart program
@@ -256,7 +257,7 @@ GET_OP_CODE:
     BEQ         OP_NIBBLE_4
     CMP.B       #$05,D3                 * Check if nibble = 5 - ADDQ
     BEQ         OP_ADDQ
-    CMP.B       #$06,D3                 * Check if nibble = 6 - BGT, BEQ, BLE
+    CMP.B       #$06,D3                 * Check if nibble = 6 - BGT, BEQ, BLE, BRA
     BEQ         OP_NIBBLE_6
     CMP.B       #$07,D3                 * Check if nibble = 7 - MOVEQ
     BEQ         OP_MOVEQ
@@ -300,24 +301,41 @@ OP_NIBBLE_3:    * MOVE.W, MOVEA.W
 
     CMP.B       #01,D4                  * If the 3 bits are 001 then it's MOVEA, else MOVE
     BEQ         OP_MOVEA_WORD
-    BNE         OP_MOVE_WORD
+    CMP.B       #08,D4    
+    BLT         OP_MOVE_WORD
+
+    BRA         INVALID_OP
 
 OP_NIBBLE_4:    * NOP, MOVEM, LEA, JSR, RTS
     CMP.B       #$4E,D4                 * 4E = NOP, JSR, RTS
     BEQ         OP_BYTE_4E
     
-    BTST        #8,D3                   * MOVEM is the only nibble 4 with a 1 as the 8th bit
-    BNE         OP_MOVEM                * There is a 1 at the 8th bit
-    BRA         OP_LEA                  * If no 1 at 8th bit then default to LEA <--- CHANGE TO CATCH FALSE POSITIVES
+    MOVE.W      D7,D4
+    AND.W       #%1111101110000000,D4           * Get rid of all bits that aren't constant in MOVEM
+    CMP.W       #%0100100010000000,D4           * Check if it is equal to the constant values in MOVEM
+    BEQ         OP_MOVEM
+
+    MOVE.W      D7,D4
+    AND.W       #%1111000111000000,D4           * Get rid of all bits that aren't constant in LEA
+    CMP.W       #%0100000111000000,D4           * Check if it is equal to the constant values in LEA
+    BEQ         OP_LEA
+    BRA         INVALID_OP
 
 OP_BYTE_4E:     * NOP, JSR, RTS
     CMP.W       #$4E75,D7               * 4E75 = RTS
     BEQ         OP_RTS 
     CMP.W       #$4E71,D7               * 4E71 = NOP
     BEQ         OP_NOP
-    BRA         OP_JSR                  * Default: JSR <--- CHANGE TO CATCH FALSE POSITIVES
+
+    MOVE.W      D7,D4
+    AND.L       #$0000FFC0,D4           * Get rid of the last 6 bits because they aren't constant in JSR
+    CMP.W       #$00004E80,D4           * Check if it is equal to the constant values in JSR
+    BEQ         OP_JSR
+    BRA         INVALID_OP
 
 OP_NIBBLE_6:    * BGT, BEQ, BLE
+    CMP.W       #$60,D4                 * 60 = BRA
+    BEQ         OP_BRA
     CMP.W       #$6E,D4                 * 6E = BGT
     BEQ         OP_BGT
     CMP.W       #$67,D4                 * 67 = BEQ
@@ -326,8 +344,16 @@ OP_NIBBLE_6:    * BGT, BEQ, BLE
     BEQ         OP_BLT
     BRA         INVALID_OP              * If doesn't match the bytes from above then it's invalid
 
-
 OP_NIBBLE_D:    * ADD, ADDA
+    MOVE.W      D7,D4                   * Make sure we have the value in D4
+    LSR.L       #6,D4                   * Move the wanted bits (bits: 6,7,8)
+    AND.W       #%0000000000000111,D4   * Get rid of all other bits
+
+    CMP.B       #%00000011,D4           * If op mode is 011 we know it's ADDA
+    BEQ         OP_ADDA
+    CMP.B       #%00000111,D4           * If op mode is 111 we know it's ADDA
+    BEQ         OP_ADDA
+    BRA         OP_ADD                  * If it's not 011 or 111 we assume it's ADD
 
 OP_NIBBLE_E:    * LSL, LSR, ASL, ASR, ROL, ROR
     MOVE.W      D7,D4                   * To check between if it's LS, AS or RO we need to check the 3rd and 4th bits
@@ -410,6 +436,7 @@ OP_LEA:
 OP_ADD:
     LEA         AddMsg,A1
     JSR         PRINT_MSG
+    RTS
     
 OP_ADDA:
     LEA         AddaMsg,A1
@@ -461,6 +488,11 @@ OP_BLT:
     JSR         PRINT_MSG
     RTS
 
+OP_BRA:
+    LEA         BraMsg,A1
+    JSR         PRINT_MSG
+    RTS
+
 OP_LSL:
     LEA         LslMsg,A1
     JSR         PRINT_MSG
@@ -508,7 +540,7 @@ CHECK_EACH_OP:
     JSR         TEST_NIBBLE_3
     JSR         TEST_NIBBLE_4
     JSR         TEST_NIBBLE_6
-    * JSR         TEST_NIBBLE_D
+    JSR         TEST_NIBBLE_D
     JSR         TEST_NIBBLE_E
     RTS
 
@@ -573,12 +605,15 @@ TEST_NIBBLE_4:
     MOVE.L      #$00004E71,D7
     JSR         OP_NOP
     JSR         TEST_RUN_NIBBLE_TEST
-    MOVE.L      #$00004E00,D7
+    MOVE.L      #$00004EB8,D7
     JSR         OP_JSR
     JSR         TEST_RUN_NIBBLE_TEST
     RTS
 
 TEST_NIBBLE_6:
+    MOVE.L      #$00006000,D7
+    JSR         OP_BRA
+    JSR         TEST_RUN_NIBBLE_TEST
     MOVE.L      #$00006E00,D7
     JSR         OP_BGT
     JSR         TEST_RUN_NIBBLE_TEST
@@ -591,6 +626,13 @@ TEST_NIBBLE_6:
     RTS
 
 TEST_NIBBLE_D:
+    MOVE.L      #$0000D4C9,D7
+    JSR         OP_ADDA
+    JSR         TEST_RUN_NIBBLE_TEST
+    MOVE.L      #$0000D249,D7
+    JSR         OP_ADD
+    JSR         TEST_RUN_NIBBLE_TEST
+    RTS
 
 TEST_NIBBLE_E:
     MOVE.L      #$0000E10F,D7
