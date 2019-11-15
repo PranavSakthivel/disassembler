@@ -575,14 +575,15 @@ PRINT_OP_SIZE:  * Check the size of the instruction
     MOVE.W      D7,D4
     LSR.L       #6,D4
     AND.B       #%00000011,D4
-    CMP.B       #$00,D4
+    CMP.B       #$00,D4                 * If bits are 00 then it's a byte
     BEQ         OP_PRINT_BYTE
-    CMP.B       #$01,D4
+    CMP.B       #$01,D4                 * If bits are 01 then it's a word 
     BEQ         OP_PRINT_WORD
-    CMP.B       #$02,D4
+    CMP.B       #$02,D4                 * If bits are 10 then it's a long
     BEQ         OP_PRINT_LONG
-    RTS
+    RTS                                 * If cannot find the sign then just return and act as if there is no sign
     
+* Reason for these is so we can still rts after printing. Also easier to add in any other code here if needed
 OP_PRINT_BYTE:
     JSR         PRINT_BYTE
     RTS
