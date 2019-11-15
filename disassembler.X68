@@ -38,19 +38,20 @@ MSG_INVALID_INPUT   DC.B    'Error: Invalid characters were entered. Please try 
 *************************
 *      Opcode Messages  *
 *************************
-MoveBMsg            DC.B    'MOVE.B ',0
-MoveWMsg            DC.B    'MOVE.W ',0
-MoveLMsg            DC.B    'MOVE.L ',0
+ByteMsg             DC.B    '.B ',0
+WordMsg             DC.B    '.W ',0
+LongMsg             DC.B    '.L ',0
+MoveMsg             DC.B    'MOVE',0
+NotMsg              DC.B    'NOT',0
 NopMsg              DC.B    'NOP ',0
-MoveaWMsg           DC.B    'MOVEA.W ',0
-MoveaLMsg           DC.B    'MOVEA.L ',0
+MoveaMsg            DC.B    'MOVEA',0
 MovemMsg            DC.B    'MOVEM ',0
 MoveqMsg            DC.B    'MOVEQ ',0
 LeaMsg              DC.B    'LEA ',0
 AddMsg              DC.B    'ADD ',0
 AddaMsg             DC.B    'ADDA ',0
-AddqMsg             DC.B    'ADDQ ',0
-SubMsg              DC.B    'SUB ',0
+AddqMsg             DC.B    'ADDQ',0
+SubMsg              DC.B    'SUB',0
 OrMsg               DC.B    'OR ',0
 AndMsg              DC.B    'AND ',0
 JsrMsg              DC.B    'JSR ',0
@@ -59,12 +60,12 @@ BraMsg              DC.B    'BRA ',0
 BgtMsg              DC.B    'BGT ',0
 BeqMsg              DC.B    'BEQ ',0
 BltMsg              DC.B    'BLT ',0
-LslMsg              DC.B    'LSL ',0
-LsrMsg              DC.B    'LSR ',0
-AslMsg              DC.B    'ASL ',0
-AsrMsg              DC.B    'ASR ',0
-RolMsg              DC.B    'ROL ',0
-RorMsg              DC.B    'ROR ',0
+LslMsg              DC.B    'LSL',0
+LsrMsg              DC.B    'LSR',0
+AslMsg              DC.B    'ASL',0
+AsrMsg              DC.B    'ASR',0
+RolMsg              DC.B    'ROL',0
+RorMsg              DC.B    'ROR',0
 
 *************************
 *  Global subrountines  *
@@ -219,6 +220,21 @@ GET_2ND_NUMBER:
         MOVE.B      #9,D2               * Number of digits to be read, subtracted each iteration
 
         BRA         ASCII_TO_HEX        * Branch to converting number to hex
+
+PRINT_BYTE:
+    LEA         ByteMsg,A1
+    JSR         PRINT_MSG
+    RTS
+
+PRINT_WORD:
+    LEA         WordMsg,A1
+    JSR         PRINT_MSG
+    RTS
+
+PRINT_LONG:
+    LEA         LongMsg,A1
+    JSR         PRINT_MSG
+    RTS
         
 ALL_NUMBERS_DONE:
 
@@ -253,14 +269,14 @@ GET_OP_CODE:
     BEQ         OP_NIBBLE_2
     CMP.B       #$03,D3                 * Check if nibble = 3 - MOVE.W, MOVEA.W
     BEQ         OP_NIBBLE_3
-    CMP.B       #$04,D3                 * Check if nibble = 4 - NOP, MOVEM, LEA, JSR, RTS
+    CMP.B       #$04,D3                 * Check if nibble = 4 - NOP, NOT, MOVEM, LEA, JSR, RTS
     BEQ         OP_NIBBLE_4
     CMP.B       #$05,D3                 * Check if nibble = 5 - ADDQ
     BEQ         OP_ADDQ
     CMP.B       #$06,D3                 * Check if nibble = 6 - BGT, BEQ, BLE, BRA
     BEQ         OP_NIBBLE_6
-    CMP.B       #$07,D3                 * Check if nibble = 7 - MOVEQ
-    BEQ         OP_MOVEQ
+    CMP.B       #$07,D3                 * Check if nibble = 7 - MOVEQ (Most likely)
+    BEQ         OP_CHECK_MOVEQ
     CMP.B       #$08,D3                 * Check if nibble = 8 - OR
     BEQ         OP_OR
     CMP.B       #$09,D3                 * Check if nibble = 9 - SUB
@@ -278,7 +294,6 @@ GET_OP_CODE:
     CMP.B       #$0F,D3                 * Check if nibble = F - INVALID
     BEQ         INVALID_OP
     BRA         INVALID_OP              * Assume if we haven't branched yet something is wrong
-    
 
 INVALID_OP:
     LEA         MSG_INVALID_OP,A1
@@ -309,15 +324,18 @@ OP_NIBBLE_3:    * MOVE.W, MOVEA.W
 OP_NIBBLE_4:    * NOP, MOVEM, LEA, JSR, RTS
     CMP.B       #$4E,D4                 * 4E = NOP, JSR, RTS
     BEQ         OP_BYTE_4E
+
+    CMP.B       #$46,D4                 * 46 = NOT
+    BEQ         OP_NOT
     
     MOVE.W      D7,D4
-    AND.W       #%1111101110000000,D4           * Get rid of all bits that aren't constant in MOVEM
-    CMP.W       #%0100100010000000,D4           * Check if it is equal to the constant values in MOVEM
+    AND.W       #%1111101110000000,D4   * Get rid of all bits that aren't constant in MOVEM
+    CMP.W       #%0100100010000000,D4   * Check if it is equal to the constant values in MOVEM
     BEQ         OP_MOVEM
 
     MOVE.W      D7,D4
-    AND.W       #%1111000111000000,D4           * Get rid of all bits that aren't constant in LEA
-    CMP.W       #%0100000111000000,D4           * Check if it is equal to the constant values in LEA
+    AND.W       #%1111000111000000,D4   * Get rid of all bits that aren't constant in LEA
+    CMP.W       #%0100000111000000,D4   * Check if it is equal to the constant values in LEA
     BEQ         OP_LEA
     BRA         INVALID_OP
 
@@ -343,6 +361,11 @@ OP_NIBBLE_6:    * BGT, BEQ, BLE
     CMP.W       #$6F,D4                 * 6F = BLT
     BEQ         OP_BLT
     BRA         INVALID_OP              * If doesn't match the bytes from above then it's invalid
+
+OP_CHECK_MOVEQ:
+    BTST        #8,D7
+    BNE         INVALID_OP              * If bit = 1 then INVALID
+    BEQ         OP_MOVEQ                * If bit = 0 then MOVEQ
 
 OP_NIBBLE_D:    * ADD, ADDA
     MOVE.W      D7,D4                   * Make sure we have the value in D4
@@ -393,35 +416,52 @@ OP_NOP:
     JSR         PRINT_MSG
     RTS
 
-OP_MOVE_BYTE:
-    LEA         MovebMsg,A1
+OP_NOT:
+    LEA         NotMsg,A1
     JSR         PRINT_MSG
+    JSR         PRINT_OP_SIZE
+    RTS
+
+OP_MOVE_BYTE:
+    LEA         MoveMsg,A1
+    JSR         PRINT_MSG
+    JSR         PRINT_BYTE
     RTS
 
 OP_MOVE_WORD:
-    LEA         MovewMsg,A1
+    LEA         MoveMsg,A1
     JSR         PRINT_MSG
+    JSR         PRINT_WORD
     RTS
 
 OP_MOVE_LONG:
-    LEA         MovelMsg,A1
+    LEA         MoveMsg,A1
     JSR         PRINT_MSG
+    JSR         PRINT_LONG
     RTS
 
 OP_MOVEA_WORD:
-    LEA         MoveawMsg,A1
+    LEA         MoveaMsg,A1
     JSR         PRINT_MSG
+    JSR         PRINT_WORD
     RTS
 
 OP_MOVEA_LONG:
-    LEA         MovealMsg,A1
+    LEA         MoveaMsg,A1
     JSR         PRINT_MSG
+    JSR         PRINT_LONG
     RTS
 
 OP_MOVEM:
     LEA         MovemMsg,A1
     JSR         PRINT_MSG
-    RTS
+    MOVE.W      D7,D4
+    LSR.L       #6,D4
+    AND.B       #%00000001,D4
+    CMP.B       #$00,D4
+    BEQ         OP_PRINT_WORD
+    CMP.B       #$01,D4
+    BEQ         OP_PRINT_LONG
 
 OP_MOVEQ:
     LEA         MoveqMsg,A1
@@ -446,11 +486,13 @@ OP_ADDA:
 OP_ADDQ:
     LEA         AddqMsg,A1
     JSR         PRINT_MSG
+    JSR         PRINT_OP_SIZE
     RTS
 
 OP_SUB:
     LEA         SubMsg,A1
     JSR         PRINT_MSG
+    JSR         PRINT_OP_SIZE
     RTS
 
 OP_OR:
@@ -496,31 +538,61 @@ OP_BRA:
 OP_LSL:
     LEA         LslMsg,A1
     JSR         PRINT_MSG
+    JSR         PRINT_OP_SIZE
     RTS
 
 OP_LSR:
     LEA         LsrMsg,A1
     JSR         PRINT_MSG
+    JSR         PRINT_OP_SIZE
     RTS
 
 OP_ASL:
     LEA         AslMsg,A1
     JSR         PRINT_MSG
+    JSR         PRINT_OP_SIZE
     RTS
 
 OP_ASR:
     LEA         AsrMsg,A1
     JSR         PRINT_MSG
+    JSR         PRINT_OP_SIZE
     RTS
 
 OP_ROL:
     LEA         RolMsg,A1
     JSR         PRINT_MSG
+    JSR         PRINT_OP_SIZE
     RTS
 
 OP_ROR:
     LEA         RorMsg,A1
     JSR         PRINT_MSG
+    JSR         PRINT_OP_SIZE
+    RTS
+
+PRINT_OP_SIZE:  * Check the size of the instruction
+    MOVE.W      D7,D4
+    LSR.L       #6,D4
+    AND.B       #%00000011,D4
+    CMP.B       #$00,D4
+    BEQ         OP_PRINT_BYTE
+    CMP.B       #$01,D4
+    BEQ         OP_PRINT_WORD
+    CMP.B       #$02,D4
+    BEQ         OP_PRINT_LONG
+    RTS
+    
+OP_PRINT_BYTE:
+    JSR         PRINT_BYTE
+    RTS
+
+OP_PRINT_WORD:
+    JSR         PRINT_WORD
+    RTS
+
+OP_PRINT_LONG:
+    JSR         PRINT_LONG
     RTS
 
 *************************
@@ -563,10 +635,10 @@ TEST_SINGLE_CHOICE_NIBBLES:
     MOVE.L      #$00001000,D7
     JSR         OP_MOVE_BYTE
     JSR         TEST_RUN_NIBBLE_TEST
-    MOVE.L      #$00005000,D7
+    MOVE.L      #$00005842,D7
     JSR         OP_ADDQ
     JSR         TEST_RUN_NIBBLE_TEST
-    MOVE.L      #$00007000,D7
+    MOVE.L      #$00007211,D7
     JSR         OP_MOVEQ
     JSR         TEST_RUN_NIBBLE_TEST
     MOVE.L      #$00008000,D7
@@ -599,6 +671,9 @@ TEST_NIBBLE_3:
     RTS
 
 TEST_NIBBLE_4:
+    MOVE.L      #$00004600,D7
+    JSR         OP_NOT
+    JSR         TEST_RUN_NIBBLE_TEST
     MOVE.L      #$00004E75,D7
     JSR         OP_RTS
     JSR         TEST_RUN_NIBBLE_TEST
@@ -607,6 +682,12 @@ TEST_NIBBLE_4:
     JSR         TEST_RUN_NIBBLE_TEST
     MOVE.L      #$00004EB8,D7
     JSR         OP_JSR
+    JSR         TEST_RUN_NIBBLE_TEST
+    MOVE.L      #$000048A7,D7
+    JSR         OP_MOVEM
+    JSR         TEST_RUN_NIBBLE_TEST
+    MOVE.L      #$000043F8,D7
+    JSR         OP_LEA
     JSR         TEST_RUN_NIBBLE_TEST
     RTS
 
