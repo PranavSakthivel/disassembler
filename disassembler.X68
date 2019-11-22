@@ -222,17 +222,17 @@ GET_2ND_NUMBER:
         BRA         ASCII_TO_HEX        * Branch to converting number to hex
 
 PRINT_BYTE:
-    LEA         ByteMsg,A1
+    LEA         ByteMsg,A1              * Print .B
     JSR         PRINT_MSG
     RTS
 
 PRINT_WORD:
-    LEA         WordMsg,A1
+    LEA         WordMsg,A1              * Print.W
     JSR         PRINT_MSG
     RTS
 
 PRINT_LONG:
-    LEA         LongMsg,A1
+    LEA         LongMsg,A1              * Print.L
     JSR         PRINT_MSG
     RTS
         
