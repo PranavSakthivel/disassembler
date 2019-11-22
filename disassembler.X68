@@ -244,6 +244,44 @@ INVALID_IO:
         
         BRA         START               * Restart program
 
+
+* Will print address that is stored in D7
+*   Uses:   D3,D4,D5
+PRINT_ADDRESS:
+    CLR             D1
+    CLR             D3
+    CLR             D4
+    CLR             D5
+    BRA             PRINT_ADDRESS_LOOP_START
+
+PRINT_ADDRESS_LOOP_START:
+    CMP.B           #32,D3
+    BLT             GET_NEXT_NIBBLE
+    JSR
+
+GET_NEXT_NIBBLE:
+    MOVE.L          D7,D4                   * Move to D4 so we can manipulate it
+    LSR.L           D3,D4                   * Shift D4 by the value in D3 (Should be 0, 4, 8 ... 24, 28) to isolate nibble
+    ADD.B           #4,D3                   * Increase D3 counter
+    CMP.B           #$00000009,D4           * Print 1-9
+    BLE             PRINT_ADDRESS_NUMBER
+    CMP.B           #$0000000A,D4           * Print A-F
+    BGE             PRINT_ADDRESS_LETTER
+
+PRINT_ADDRESS_NUMBER:
+    ADD.L           #30,D4                  * Convert to ascii number
+    BRA             PRINT_ADDRESS_LOOP_END    
+
+PRINT_ADDRESS_LETTER:
+    ADD.L           #37,D4                  * Convert to ascii letter
+    BRA             PRINT_ADDRESS_LOOP_END    
+
+PRINT_ADDRESS_LOOP_END:
+    LSL.L           #4,D1                   * Make space for next nibble
+    AND.B           D4,D1                   * Move bits found in D4 to D1
+    JSR             PRINT_NUM               * Print
+    BRA             PRINT_ADDRESS_LOOP_START
+
 *************************
 *  Op Codes branching   *
 *************************
@@ -252,6 +290,8 @@ INVALID_IO:
 * Requires: opcode binary is in D7
 *   Uses:   D3,D4
 GET_OP_CODE:
+    CLR         D3
+    CLR         D4
     MOVE.W      D7,D3
     AND.L       #$0000F000,D3           * We only want to check if the instructions first nibble, get rid of all other bits
     LSR.L       #8,D3
