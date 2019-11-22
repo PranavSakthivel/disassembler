@@ -606,17 +606,6 @@ RUN_ALL_TESTS:
 * Prints out what is expected followed by what is found. If these are different there is an issue
 
 CHECK_EACH_OP:
-    JSR         TEST_INVALID_NIBBLES            * Tests known invalid nibbles
-    JSR         TEST_SINGLE_CHOICE_NIBBLES      * Tests nibbles with only one possible value
-    JSR         TEST_NIBBLE_2                   * Following test tests nibbles that require more than just the first nibble to discover
-    JSR         TEST_NIBBLE_3
-    JSR         TEST_NIBBLE_4
-    JSR         TEST_NIBBLE_6
-    JSR         TEST_NIBBLE_D
-    JSR         TEST_NIBBLE_E
-    RTS
-
-TEST_INVALID_NIBBLES:
     MOVE.L      #$00000000,D7
     JSR         INVALID_OP
     JSR         TEST_RUN_NIBBLE_TEST
@@ -629,9 +618,6 @@ TEST_INVALID_NIBBLES:
     MOVE.L      #$0000F000,D7
     JSR         INVALID_OP
     JSR         TEST_RUN_NIBBLE_TEST
-    RTS
-
-TEST_SINGLE_CHOICE_NIBBLES:
     MOVE.L      #$00001000,D7
     JSR         OP_MOVE_BYTE
     JSR         TEST_RUN_NIBBLE_TEST
@@ -650,27 +636,18 @@ TEST_SINGLE_CHOICE_NIBBLES:
     MOVE.L      #$0000C000,D7
     JSR         OP_AND
     JSR         TEST_RUN_NIBBLE_TEST
-    RTS
-
-TEST_NIBBLE_2:
     MOVE.L      #$00002A03,D7
     JSR         OP_MOVE_LONG
     JSR         TEST_RUN_NIBBLE_TEST
     MOVE.L      #$00002449,D7
     JSR         OP_MOVEA_LONG
     JSR         TEST_RUN_NIBBLE_TEST
-    RTS
-
-TEST_NIBBLE_3:
     MOVE.L      #$00003607,D7
     JSR         OP_MOVE_WORD
     JSR         TEST_RUN_NIBBLE_TEST
     MOVE.L      #$00003449,D7
     JSR         OP_MOVEA_WORD
     JSR         TEST_RUN_NIBBLE_TEST
-    RTS
-
-TEST_NIBBLE_4:
     MOVE.L      #$00004600,D7
     JSR         OP_NOT
     JSR         TEST_RUN_NIBBLE_TEST
@@ -689,9 +666,6 @@ TEST_NIBBLE_4:
     MOVE.L      #$000043F8,D7
     JSR         OP_LEA
     JSR         TEST_RUN_NIBBLE_TEST
-    RTS
-
-TEST_NIBBLE_6:
     MOVE.L      #$00006000,D7
     JSR         OP_BRA
     JSR         TEST_RUN_NIBBLE_TEST
@@ -704,39 +678,30 @@ TEST_NIBBLE_6:
     MOVE.L      #$00006F00,D7
     JSR         OP_BLT
     JSR         TEST_RUN_NIBBLE_TEST
-    RTS
-
-TEST_NIBBLE_D:
     MOVE.L      #$0000D4C9,D7
     JSR         OP_ADDA
     JSR         TEST_RUN_NIBBLE_TEST
     MOVE.L      #$0000D249,D7
     JSR         OP_ADD
     JSR         TEST_RUN_NIBBLE_TEST
-    RTS
-
-TEST_NIBBLE_E:
     MOVE.L      #$0000E10F,D7
     JSR         OP_LSL
     JSR         TEST_RUN_NIBBLE_TEST
     MOVE.L      #$0000E00F,D7
     JSR         OP_LSR
     JSR         TEST_RUN_NIBBLE_TEST
-
     MOVE.L      #$0000E100,D7
     JSR         OP_ASL
     JSR         TEST_RUN_NIBBLE_TEST
     MOVE.L      #$0000E000,D7
     JSR         OP_ASR
     JSR         TEST_RUN_NIBBLE_TEST
-
     MOVE.L      #$0000E75C,D7
     JSR         OP_ROL
     JSR         TEST_RUN_NIBBLE_TEST
     MOVE.L      #$0000E65C,D7
     JSR         OP_ROR
     JSR         TEST_RUN_NIBBLE_TEST
-
     RTS
 
 TEST_RUN_NIBBLE_TEST:
