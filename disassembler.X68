@@ -240,24 +240,24 @@ ALL_NUMBERS_DONE:
 
 INVALID_IO:
         LEA         MSG_INVALID_INPUT,A1    * Load error message
-        JSR         PRINT_MSG_ENDL      * Print error message
+        JSR         PRINT_MSG_ENDL          * Print error message
         
-        BRA         START               * Restart program
+        BRA         START                   * Restart program
 
 
 * Will print address that is stored in D7
-*   Uses:   D3,D4,D5
+*   Uses:   D3,D4
 PRINT_ADDRESS:
     CLR             D1
     CLR             D3
     CLR             D4
-    CLR             D5
-    BRA             PRINT_ADDRESS_LOOP_START
+    BRA             PRINT_ADDRESS_LOOP
 
-PRINT_ADDRESS_LOOP_START:
+PRINT_ADDRESS_LOOP:
     CMP.B           #32,D3
-    BLT             GET_NEXT_NIBBLE
-    JSR
+    BLT             GET_NEXT_NIBBLE         * If count < 32 keep looping
+    LEA.L           D1,A1                   * To print a string it must be in A1
+    JSR             PRINT_WORD              * Print the word
 
 GET_NEXT_NIBBLE:
     MOVE.L          D7,D4                   * Move to D4 so we can manipulate it
@@ -270,17 +270,16 @@ GET_NEXT_NIBBLE:
 
 PRINT_ADDRESS_NUMBER:
     ADD.L           #30,D4                  * Convert to ascii number
-    BRA             PRINT_ADDRESS_LOOP_END    
-
+    BRA             PRINT_ADDRESS_SETUP_PRINT
+    
 PRINT_ADDRESS_LETTER:
     ADD.L           #37,D4                  * Convert to ascii letter
-    BRA             PRINT_ADDRESS_LOOP_END    
+    BRA             PRINT_ADDRESS_SETUP_PRINT
 
-PRINT_ADDRESS_LOOP_END:
+PRINT_ADDRESS_SETUP_PRINT:
     LSL.L           #4,D1                   * Make space for next nibble
     AND.B           D4,D1                   * Move bits found in D4 to D1
-    JSR             PRINT_NUM               * Print
-    BRA             PRINT_ADDRESS_LOOP_START
+    BRA             PRINT_ADDRESS_LOOP      * Start loop over
 
 *************************
 *  Op Codes branching   *
