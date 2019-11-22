@@ -28,7 +28,8 @@
 CR                  EQU     $0D     * Ascii for carriage return
 LF                  EQU     $0D     * Ascii for carriage return
 StartAddress        EQU     $5000
-EndAddress          EQU     $5008   * difference of 4 or 8?
+EndAddress          EQU     $5004
+AddressToPrint      EQU     $5008
 EndlMsg             DC.B    '',CR,LF,0
 MSG_INVALID_OP      DC.B    'Invalid op code: ',0
 IntroMsg            DC.B    'Please enter start and end hexadecimal addresses, one after the other: ',0
@@ -256,7 +257,9 @@ PRINT_ADDRESS:
 PRINT_ADDRESS_LOOP:
     CMP.B           #32,D3
     BLT             GET_NEXT_NIBBLE         * If count < 32 keep looping
-    LEA.L           D1,A1                   * To print a string it must be in A1
+    * MOVE.L          D1,AddressToPrint                   * To print a string it must be in A1
+    MOVE.L          D1,AddressToPrint
+    LEA             AddressToPrint,A1
     JSR             PRINT_WORD              * Print the word
 
 GET_NEXT_NIBBLE:
@@ -640,6 +643,8 @@ OP_PRINT_LONG:
 *************************
 RUN_ALL_TESTS:
     JSR         CHECK_EACH_OP
+    JSR         PRINT_NEWLINE
+    JSR         CHECK_PRINT_ADDRESS
     RTS
 
 * Runs get op code against a known opcode value to see if it is correctly found
@@ -747,6 +752,32 @@ CHECK_EACH_OP:
 TEST_RUN_NIBBLE_TEST:
     JSR         GET_OP_CODE
     JSR         PRINT_NEWLINE
+    RTS
+
+CHECK_PRINT_ADDRESS:
+    JSR         CLEAR_ALL_DATA_REGISTERS
+    
+    JSR         CHECK_PRINT_ADDRESS_INCREASE
+    JSR         CHECK_PRINT_ADDRESS_INCREASE
+    JSR         CHECK_PRINT_ADDRESS_INCREASE
+    JSR         CHECK_PRINT_ADDRESS_INCREASE
+    JSR         CHECK_PRINT_ADDRESS_INCREASE
+    JSR         CHECK_PRINT_ADDRESS_INCREASE
+    JSR         CHECK_PRINT_ADDRESS_INCREASE
+    JSR         CHECK_PRINT_ADDRESS_INCREASE
+    JSR         CHECK_PRINT_ADDRESS_INCREASE
+    JSR         CHECK_PRINT_ADDRESS_INCREASE
+    JSR         CHECK_PRINT_ADDRESS_INCREASE
+    JSR         CHECK_PRINT_ADDRESS_INCREASE
+    JSR         CHECK_PRINT_ADDRESS_INCREASE
+    JSR         CHECK_PRINT_ADDRESS_INCREASE
+    JSR         CHECK_PRINT_ADDRESS_INCREASE
+    JSR         CHECK_PRINT_ADDRESS_INCREASE
+
+CHECK_PRINT_ADDRESS_INCREASE:
+    ADD.B       #$02,D2
+    MOVE.L      D2,A1
+    JSR         PRINT_MSG_ENDL
     RTS
 
 *************************
