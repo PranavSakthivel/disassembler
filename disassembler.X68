@@ -45,7 +45,7 @@ MoveMsg             DC.B    'MOVE',0
 NotMsg              DC.B    'NOT',0
 NopMsg              DC.B    'NOP ',0
 MoveaMsg            DC.B    'MOVEA',0
-MovemMsg            DC.B    'MOVEM ',0
+MovemMsg            DC.B    'MOVEM',0
 MoveqMsg            DC.B    'MOVEQ ',0
 LeaMsg              DC.B    'LEA ',0
 AddMsg              DC.B    'ADD ',0
@@ -457,7 +457,7 @@ OP_MOVEM:
     JSR         PRINT_MSG
     MOVE.W      D7,D4
     LSR.L       #6,D4
-    AND.B       #%00000001,D4
+    AND.B       #%00000001,D4   * Need to check the size with this one bit
     CMP.B       #$00,D4
     BEQ         OP_PRINT_WORD
     CMP.B       #$01,D4
