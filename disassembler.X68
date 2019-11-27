@@ -105,8 +105,8 @@ GLOBAL_RTS:
     ORG    $1000
 
 START:                  ; first instruction of program
-    JSR             RUN_ALL_TESTS
-    JMP             DONE
+        JSR         GET_USER_INPUT
+
 
 *************************
 *         I/O           *
@@ -118,7 +118,16 @@ GET_USER_INPUT:     * Get user hex input
         JSR         PRINT_MSG_ENDL      * Print intro message
         JSR         GET_INPUT_AS_STRING * Get the user input as string
         
-        RTS    
+        MOVEA.L     A1,A2
+        
+        MOVE.B      #1,D7
+        
+        MOVEA.L     #$2000,A3           * Starting address for storing Hex number at A3
+
+        MOVE.B      #9,D2               * Number of digits to be read, subtracted each iteration
+        
+        BRA         ASCII_TO_HEX 
+          
     
 PRINT_MSG_ENDL:     * Print message with CR LF
         MOVE.B      #13,D0
@@ -235,9 +244,10 @@ PRINT_LONG:
     LEA         LongMsg,A1
     JSR         PRINT_MSG
     RTS
-        
-ALL_NUMBERS_DONE:
 
+ALL_NUMBERS_DONE:
+        SIMHALT     * debugging
+        
 INVALID_IO:
         LEA         MSG_INVALID_INPUT,A1    * Load error message
         JSR         PRINT_MSG_ENDL      * Print error message
@@ -717,6 +727,7 @@ DONE:
     SIMHALT                 ; halt simulator
 
     END    START        ; last line of source
+
 
 
 
