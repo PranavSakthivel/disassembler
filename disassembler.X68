@@ -31,6 +31,7 @@ StartAddress        EQU     $5000
 EndAddress          EQU     $5008   * difference of 4 or 8?
 EndlMsg             DC.B    '',CR,LF,0
 MSG_INVALID_OP      DC.B    'Invalid op code: ',0
+MSG_INVALID_EA      DC.B    'Invalid ea code: ',CR,LF,0
 IntroMsg            DC.B    'Please enter start and end hexadecimal addresses, one after the other: ',0
 OverflowError       DC.B    'Overflow Error',CR,LF,0
 MSG_INVALID_INPUT   DC.B    'Error: Invalid characters were entered. Please try again.',CR,LF,0
@@ -594,6 +595,510 @@ OP_PRINT_WORD:
 
 OP_PRINT_LONG:
     JSR         PRINT_LONG
+    RTS
+
+*************************
+*   Effective Address   *
+*************************
+*D7 has opcode
+*D6 has Data
+
+DST_REGI:
+    MOVE.W  D7, D3
+    ANDI.W  #$0E00 ,D3
+    MOVE.B  #9,D1
+    LSR.W   D1,D3
+    MOVE.B  D3,$7000
+    RTS
+DST_MODE:
+    MOVE.W  D7,D3
+    ANDI.W  #$01C0,D3
+    LSR.W   #6,D3
+    MOVE.B  D3,$7001
+    RTS
+SRC_MODE:
+    MOVE.W  D7, D3
+    ANDI.W  #$0380 ,D3
+    LSR.W   #3,D3
+    MOVE.B  D3,$7002
+    RTS
+SRC_REGI:
+    MOVE.W D7, $7003
+    ANDI.W #$0007 ,$7003
+    RTS
+
+MOVE_SRC:                       * Addressing Register comparision
+    CMPI.B  #0, $7003
+    BEQ     WORD_SRC            * Word
+    CMPI.B  #1, $7003
+    BEQ     LONG_SRC            * Long
+    CMPI.B  #4, $7003
+    BEQ     IMM_DATA            * Immediate Register
+    CMPI.B  #2, $7003
+    BEQ     PC_D16              * (d16,PC)
+    CMPI.B  #3, $7003
+    BEQ     PC_D8               * (d8,PC,Xn)
+    JSR     INVALID_EA
+    RTS         *Change later
+WORD_SRC:
+    MOVE.B  #$24, (A2)+     * $
+    JSR     DATA_SUB        * Data
+    MOVE.B  $9000, (A2)+    * D6
+    MOVE.B  $9001, (A2)+    * D6
+    MOVE.B  $9002, (A2)+    * D6
+    MOVE.B  $9003, (A2)+    * D6
+    MOVE.B  #$2C, (A2)+     * ,
+    MOVE.L  D6,$4000 
+    MOVE.L  D5,D6
+    RTS
+LONG_SRC:
+    MOVE.B  #$24, (A2)+     * $
+    MOVE.L  D6,$4000        *temp
+    MOVE.B  #16,D2
+    LSR.L   D2,D6   
+    JSR     DATA_SUB        * Data
+    MOVE.B  $9000, (A2)+    * D6
+    MOVE.B  $9001, (A2)+    * D6
+    MOVE.B  $9002, (A2)+    * D6
+    MOVE.B  $9003, (A2)+    * D6
+    MOVE.W  $4000,D6           
+    JSR     DATA_SUB        * Data
+    MOVE.B  $9000, (A2)+    * D6
+    MOVE.B  $9001, (A2)+    * D6
+    MOVE.B  $9002, (A2)+    * D6
+    MOVE.B  $9003, (A2)+    * D6
+    MOVE.B  #$2C, (A2)+     * ,
+    MOVE.L  D6,$4000 
+    MOVE.L  D5,D6
+    RTS
+IMM_DATA:
+    MOVE.B  #$23, (A2)+     * #
+    MOVE.B  #$24, (A2)+     * $
+    JSR     DATA_SUB        * Data
+    MOVE.B  $9000, (A2)+    * D6
+    MOVE.B  $9001, (A2)+    * D6
+    MOVE.B  $9002, (A2)+    * D6
+    MOVE.B  $9003, (A2)+    * D6
+    MOVE.B  #$2C, (A2)+     * ,
+    MOVE.L  D6,$4000 
+    MOVE.L  D5,D6
+    RTS
+PC_D16:
+    MOVE.B  #$28, (A2)+     * (
+    MOVE.B  #$24, (A2)+     * $
+    JSR     DATA_SUB        * Data
+    MOVE.B  $9000, (A2)+    * D6
+    MOVE.B  $9001, (A2)+    * D6
+    MOVE.B  $9002, (A2)+    * D6
+    MOVE.B  $9003, (A2)+    * D6
+    MOVE.B  #$2C, (A2)+     * ,
+    MOVE.B  #$50, (A2)+     * P
+    MOVE.B  #$43, (A2)+     * C
+    MOVE.B  #$29, (A2)+     * )
+    MOVE.B  #$2C, (A2)+     * ,
+    MOVE.B  D6,$4000 
+    MOVE.B  D5,D6
+    RTS
+PC_D8:
+    MOVE.B  #$28, (A2)+     * (
+    MOVE.B  #$24, (A2)+     * $
+    JSR     DATA8_SUB       * Data
+    MOVE.B  $9000, (A2)+    * D6
+    MOVE.B  $9001, (A2)+    * D6
+    MOVE.B  #$2C, (A2)+     * ,
+    MOVE.B  #$50, (A2)+     * P
+    MOVE.B  #$43, (A2)+     * C   
+    MOVE.B  #$2C, (A2)+     * ,
+    JSR     DATA8_SUB2
+    MOVE.B  $9000, (A2)+
+    MOVE.B  $9001, (A2)+
+    MOVE.B  #$29, (A2)+     * )
+    MOVE.B  #$2C, (A2)+     * ,
+    MOVE.B  D6,$4000 
+    MOVE.B  D5,D6
+    RTS
+ 
+MOVE_SEA:
+    JSR     SRC_MODE
+    JSR     SRC_REGI
+    MOVEA.L #$7500,A2
+MOVE_SEA2:   
+    CMPI.B  #0, $7002
+    BEQ     D_SEA           * D[n]
+    CMPI.B  #1, $7002
+    BEQ     A_SEA           * A[n]
+    CMPI.B  #2, $7002
+    BEQ     AIN_SEA         * (A[n])
+    CMPI.B  #3, $7002
+    BEQ     AP_SEA          * (A[n])+
+    CMPI.B  #4, $7002
+    BEQ     AM_SEA          * -(A[n])
+    CMPI.B  #5, $7002
+    BEQ     AD16_SEA        * (d16,A[n])
+    CMPI.B  #6, $7002
+    BEQ     AD8_SEA         * (d8,A[n],X[n])
+    
+    BRA     MOVE_SRC
+    RTS
+D_SEA:
+    MOVE.B  #$44, (A2)+
+    ADDI.B  #$30, $7003
+    MOVE.B  $7003, (A2)+
+    MOVE.B  #$2C, (A2)+
+    RTS
+A_SEA:
+    MOVE.B  #$41, (A2)+
+    ADDI.B  #$30, $7003
+    MOVE.B  $7003, (A2)+
+    MOVE.B  #$2C, (A2)+
+    RTS
+AIN_SEA:
+    MOVE.B  #$28, (A2)+
+    MOVE.B  #$41, (A2)+
+    ADDI.B  #$30, $7003
+    MOVE.B  $7003, (A2)+
+    MOVE.B  #$29, (A2)+
+    MOVE.B  #$2C, (A2)+
+    RTS
+AP_SEA:
+    MOVE.B  #$28, (A2)+
+    MOVE.B  #$41, (A2)+
+    ADDI.B  #$30, $7003
+    MOVE.B  $7003, (A2)+
+    MOVE.B  #$29, (A2)+
+    MOVE.B  #$2B, (A2)+
+    MOVE.B  #$2C, (A2)+
+    RTS    
+AM_SEA:
+    MOVE.B  #$2D, (A2)+
+    MOVE.B  #$28, (A2)+
+    MOVE.B  #$41, (A2)+
+    ADDI.B  #$30, $7003
+    MOVE.B  $7003, (A2)+
+    MOVE.B  #$29, (A2)+
+    MOVE.B  #$2C, (A2)+
+    RTS
+AD16_SEA:
+    MOVE.B  #$28, (A2)+     * (
+    MOVE.B  #$24, (A2)+     * $
+    JSR     DATA_SUB        * Data
+    MOVE.B  $9000, (A2)+    * D6
+    MOVE.B  $9001, (A2)+    * D6
+    MOVE.B  $9002, (A2)+    * D6
+    MOVE.B  $9003, (A2)+    * D6
+    MOVE.B  #$2C, (A2)+     * ,
+    MOVE.B  #$41, (A2)+     * A
+    ADDI.B  #$30, $7003
+    MOVE.B  $7003, (A2)+    
+    MOVE.B  #$29, (A2)+     * )
+    MOVE.B  #$2C, (A2)+     * ,
+    MOVE.B  D6,$4000 
+    MOVE.B  D5,D6
+    RTS
+AD8_SEA:
+    MOVE.B  #$28, (A2)+     * (
+    MOVE.B  #$24, (A2)+     * $
+    JSR     DATA8_SUB       * Data
+    MOVE.B  $9000, (A2)+    * D6
+    MOVE.B  $9001, (A2)+    * D6
+    MOVE.B  #$2C, (A2)+     * ,
+    MOVE.B  #$41, (A2)+     * A
+    ADDI.B  #$30, $7003
+    MOVE.B  $7003, (A2)+    
+    MOVE.B  #$2C, (A2)+     * ,
+    JSR     DATA8_SUB2
+    MOVE.B  $9000, (A2)+
+    MOVE.B  $9001, (A2)+
+    MOVE.B  #$29, (A2)+     * )
+    MOVE.B  #$2C, (A2)+     * ,
+    MOVE.B  D6,$4000        *$4000 just for other stuff
+    MOVE.B  D5,D6
+    RTS    
+MOVE_DEA:
+    JSR     DST_MODE
+    JSR     DST_REGI
+    MOVEA.L #$8000,A3
+MOVE_DEA2:
+    CMPI.B  #0, $7001
+    BEQ     D_EA            * D[n]
+    CMPI.B  #1, $7001
+    BEQ     A_EA            * A[n]
+    CMPI.B  #2, $7001
+    BEQ     AIN_EA          * (A[n])
+    CMPI.B  #3, $7001
+    BEQ     AP_EA           * (A[n])+
+    CMPI.B  #4, $7001
+    BEQ     AM_EA           * -(A[n])
+    CMPI.B  #5, $7001
+    BEQ     AD16_EA         * (d16,A[n])
+    CMPI.B  #6, $7001
+    BEQ     AD8_EA          * (d8,A[n],X[n])
+    BRA     MOVE_DR
+MOVE_DR:                        * Addressing Register comparision
+    CMPI.B  #0, $7000
+    BEQ     WORD_DEA            * Word
+    CMPI.B  #1, $7000
+    BEQ     LONG_DEA            * Long
+    JSR     INVALID_EA          
+    RTS         *Change later
+WORD_DEA:
+    MOVE.B  #$24, (A3)+     * $
+    JSR     DATA_SUB        * Data
+    MOVE.B  $9000, (A3)+    * D6
+    MOVE.B  $9001, (A3)+    * D6
+    MOVE.B  $9002, (A3)+    * D6
+    MOVE.B  $9003, (A3)+    * D6
+    MOVE.B  #$2C, (A3)+     * ,
+    MOVE.L  D6,$4000 
+    MOVE.L  D5,D6
+    RTS
+LONG_DEA:
+    MOVE.B  #$24, (A2)+     * $
+    MOVE.L  D6,$4000        *temp
+    MOVE.B  #16,D2
+    LSR.L   D2,D6   
+    JSR     DATA_SUB        * Data
+    MOVE.B  $9000, (A2)+    * D6
+    MOVE.B  $9001, (A2)+    * D6
+    MOVE.B  $9002, (A2)+    * D6
+    MOVE.B  $9003, (A2)+    * D6
+    MOVE.W  $4000,D6           
+    JSR     DATA_SUB        * Data
+    MOVE.B  $9000, (A2)+    * D6
+    MOVE.B  $9001, (A2)+    * D6
+    MOVE.B  $9002, (A2)+    * D6
+    MOVE.B  $9003, (A2)+    * D6
+    MOVE.B  #$2C, (A2)+     * ,
+    MOVE.L  D6,$4000 
+    MOVE.L  D5,D6
+    RTS
+
+D_EA:
+    
+    MOVE.B  #$44, (A3)+
+    ADDI.B  #$30, $7000
+    MOVE.B  $7000, (A3)+
+    RTS
+A_EA:
+    MOVE.B  #$41, (A3)+
+    ADDI.B  #$30, $7000
+    MOVE.B  $7000, (A3)+
+
+    RTS
+AIN_EA:
+    MOVE.B  #$28, (A3)+
+    MOVE.B  #$41, (A3)+
+    ADDI.B  #$30, $7000
+    MOVE.B  $7000, (A3)+
+    MOVE.B  #$29, (A3)+
+
+    RTS
+AP_EA:
+    MOVE.B  #$28, (A3)+
+    MOVE.B  #$41, (A3)+
+    ADDI.B  #$30, $7000
+    MOVE.B  $7000, (A3)+
+    MOVE.B  #$29, (A3)+
+    MOVE.B  #$2B, (A3)+
+
+    RTS    
+AM_EA:
+    MOVE.B  #$2D, (A3)+     * -
+    MOVE.B  #$28, (A3)+     * (
+    MOVE.B  #$41, (A3)+     * A
+    ADDI.B  #$30, $7000     * 0-7 in ascii
+    MOVE.B  $7000, (A3)+    * 0-7
+    MOVE.B  #$29, (A3)+     * )
+
+    RTS
+AD16_EA:
+    MOVE.B  #$28, (A2)+     * (
+    MOVE.B  #$24, (A2)+     * $
+    JSR     DATA_SUB        * Data
+    MOVE.B  $9000, (A3)+    * D6
+    MOVE.B  $9001, (A3)+    * D6
+    MOVE.B  $9002, (A3)+    * D6
+    MOVE.B  $9003, (A3)+    * D6
+    MOVE.B  #$2C, (A3)+     * ,
+    MOVE.B  #$41, (A3)+     * A
+    ADDI.B  #$30, $7000
+    MOVE.B  $7000, (A3)+    
+    MOVE.B  #$29, (A3)+     * )
+    RTS
+AD8_EA:
+    MOVE.B  #$28, (A3)+     * (
+    MOVE.B  #$24, (A3)+     * $
+    JSR     DATA8_SUB       * Data
+    MOVE.B  $9000, (A3)+    * D6
+    MOVE.B  $9001, (A3)+    * D6
+    MOVE.B  #$2C, (A3)+     * ,
+    MOVE.B  #$41, (A3)+     * A
+    ADDI.B  #$30, $7000
+    MOVE.B  $7000, (A3)+    
+    MOVE.B  #$2C, (A3)+     * ,
+    JSR     DATA8_SUB2
+    MOVE.B  $9000, (A3)+
+    MOVE.B  $9001, (A3)+
+    MOVE.B  #$29, (A3)+     * )
+    RTS 
+DATA_SUB:
+        MOVE.W  D6, D0
+        LSR.W   #8, D0
+        LSR.W   #4, D0
+        ANDI.W  #$000F, D0
+        CMP.B   #9,D0
+        BLE     NUM1
+        SUBI.B  #9,D0
+        ADD.B   #$40,D0
+        BRA     NEXT1
+NUM1    ADD.B   #$30,D0
+NEXT1   MOVE.B  D0,$9000
+        MOVE.W  D6, D0
+        LSR.W   #8, D0
+        ANDI.W  #$000F, D0
+        CMP.B   #9,D0
+        BLE     NUM2
+        SUBI.B  #9,D0
+        ADD.B   #$40,D0
+        BRA     NEXT2
+NUM2    ADD.B   #$30,D0
+NEXT2   MOVE.B  D0,$9001
+        MOVE.W  D6, D0
+        LSR.W   #4, D0
+        ANDI.W  #$000F, D0
+        CMP.B   #9,D0
+        BLE     NUM3
+        SUBI.B  #9,D0
+        ADD.B   #$40,D0
+        BRA     NEXT3
+NUM3    ADD.B   #$30,D0
+NEXT3   MOVE.B  D0,$9002
+        MOVE.W  D6, D0
+        ANDI.W  #$000F, D0
+        CMP.B   #9,D0
+        BLE     NUM4
+        SUBI.B  #9,D0
+        ADD.B   #$40,D0
+        BRA     NEXT4
+NUM4    ADD.B   #$30,D0
+NEXT4   MOVE.B  D0,$9003
+        RTS
+        
+
+DATA8_SUB:
+        MOVE.W  D6, D0
+        LSR.W   #4, D0
+        ANDI.W  #$0F, D0
+        CMP.B   #9,D0
+        BLE     NUM5
+        SUBI.B  #9,D0
+        ADD.B   #$40,D0
+        BRA     NEXT5
+NUM5    ADD.B   #$30,D0
+NEXT5   MOVE.B  D0,$9000
+        MOVE.W  D6, D0
+        ANDI.W  #$000F, D0
+        CMP.B   #9,D0
+        BLE     NUM6
+        SUBI.B  #9,D0
+        ADD.B   #$40,D0
+        BRA     NEXT6
+NUM6    ADD.B   #$30,D0
+NEXT6   MOVE.B  D0,$9001
+        RTS
+DATA8_SUB2:
+        MOVE.W  D6, D0
+        LSR.W   #8, D0
+        LSR.W   #4, D0
+        ANDI.W  #$000F, D0
+        CMP.B   #8,D0
+        BLT     NUM7
+        MOVE.B  #$41,$9000
+        BRA     NEXT7
+NUM7    MOVE.B  #$44,$9000
+NEXT7   ANDI.W  #$0007,D0
+        MOVE.B  D0,$9001
+        RTS
+
+OPMODE:
+    JSR     SRC_MODE
+    JSR     SRC_REGI
+    JSR     DST_MODE
+    JSR     DST_REGI
+    MOVEA.L #$7500,A2
+    MOVEA.L #$8000,A3
+    CMPI.B  #0, $7001
+    BEQ     DD_BYTE             * 
+    CMPI.B  #1, $7001
+    BEQ     DD_WORD             * 
+    CMPI.B  #2, $7001
+    BEQ     DD_LONG             * 
+    CMPI.B  #3, $7001
+    BEQ     DS_BYTE             * 
+    CMPI.B  #4, $7001
+    BEQ     DS_WORD             * 
+    CMPI.B  #5, $7001
+    BEQ     DS_LONG             * 
+    JSR     INVALID_EA
+    RTS 
+DD_BYTE:
+    MOVE.B  #$2E, (A2)+            * .
+    MOVE.B  #$42, (A2)+            * B
+    MOVE.B  #$20, (A2)+            *  [Space]
+    JSR     MOVE_SEA2
+    MOVE.B  #$44, (A3)+            * D
+    ADDI.B  #$30, $7000            * 0-7 in ascii
+    MOVE.B  $7000, (A3)+           * 0-7
+DD_WORD:
+    MOVE.B  #$2E, (A2)+            * .
+    MOVE.B  #$57, (A2)+            * W
+    MOVE.B  #$20, (A2)+            *  [Space]
+    JSR     MOVE_SEA2
+    MOVE.B  #$44, (A3)+            * D
+    ADDI.B  #$30, $7000            * 0-7 in ascii
+    MOVE.B  $7000, (A3)+           * 0-7
+DD_LONG:
+    MOVE.B  #$2E, (A2)+            * .
+    MOVE.B  #$4C, (A2)+            * L
+    MOVE.B  #$20, (A2)+            *  [Space]
+    JSR     MOVE_SEA2
+    MOVE.B  #$44, (A3)+            * D
+    ADDI.B  #$30, $7000            * 0-7 in ascii
+    MOVE.B  $7000, (A3)+           * 0-7
+DS_BYTE:
+    MOVE.B  #$2E, (A2)+            * .
+    MOVE.B  #$42, (A2)+            * B
+    MOVE.B  #$20, (A2)+            *  [Space]
+    MOVE.B  #$44, (A2)+            * D
+    ADDI.B  #$30, $7000            * 0-7 in ascii
+    MOVE.B  $7000, (A2)+           * 0-7
+    MOVE.B  #$2C, (A2)+            * ,
+    JSR     MOVE_DEA2
+
+DS_WORD:
+    MOVE.B  #$2E, (A2)+            * .
+    MOVE.B  #$57, (A2)+            * W
+    MOVE.B  #$20, (A2)+            *  [Space]
+    MOVE.B  #$44, (A2)+            * D
+    ADDI.B  #$30, $7000            * 0-7 in ascii
+    MOVE.B  $7000, (A2)+           * 0-7
+    MOVE.B  #$2C, (A2)+            * ,    
+    JSR     MOVE_DEA2
+DS_LONG:
+    MOVE.B  #$2E, (A2)+            * .
+    MOVE.B  #$4C, (A2)+            * L
+    MOVE.B  #$20, (A2)+            *  [Space]
+    MOVE.B  #$44, (A2)+            * D
+    ADDI.B  #$30, $7000            * 0-7 in ascii
+    MOVE.B  $7000, (A2)+           * 0-7
+    MOVE.B  #$2C, (A2)+            * ,
+    JSR     MOVE_DEA2
+
+MOVEQ_SUB:    
+INVALID_EA:
+    LEA     MSG_INVALID_EA,A1
+    MOVE.B  #14,D0
+    TRAP    #15
     RTS
 
 *************************
