@@ -29,7 +29,7 @@ CR                  EQU     $0D     * Ascii for carriage return
 LF                  EQU     $0D     * Ascii for carriage return
 StartAddress        EQU     $5000
 EndAddress          EQU     $5008   * difference of 4 or 8?
-
+CntrlCounterAddr    EQU     $5012
 EndlMsg             DC.B    '',CR,LF,0
 MSG_INVALID_OP      DC.B    'Invalid op code: ',0
 MSG_INVALID_EA      DC.B    'Invalid ea code: ',CR,LF,0
@@ -112,7 +112,7 @@ START:                  ; first instruction of program
     JSR             CLEAR_ALL_DATA_REGISTERS
     * JSR             RUN_ALL_TESTS       * TBD Comment out for prod
 
-    JSR             GET_USER_INPUT      * Get and save user input
+    JSR             CALL_GET_USER_INPUT     * Get and save user input
     BRA             CHECK_IF_DONE_READING   * Begin loop of reading and printing
 
 CHECK_IF_DONE_READING:
@@ -129,7 +129,7 @@ READ_AND_WAIT_LOOP:
 
     * JSR             READ_NEXT_WORD      * Read and store next instruction
     MOVE.L          #$0000E65C,D7
-    JSR             GET_OP_CODE         * Get opcode, which will call into the correct EA
+    JSR             CALL_GET_OP         * Get opcode, which will call into the correct EA
     JSR             PRINT_NEWLINE
     BRA             READ_AND_WAIT_LOOP  * Continue the loop
 
@@ -146,7 +146,8 @@ WAIT_FOR_USER:
     BNE         CHECK_IF_RESTART        * Else check if they would like to restart
 
 CHECK_IF_RESTART:
-    CLR         D1
+    CLR         D1                      * Clear D1 because Trap #5 only will write a byte into it
+    JSR         PRINT_NEWLINE           * Required formatting if they decided to stop midway through the program
     LEA         RestartMsg,A1           * Ask if they would like to restart
     JSR         PRINT_MSG_ENDL
     MOVE.B      #5,D0  
@@ -156,10 +157,34 @@ CHECK_IF_RESTART:
     BEQ         START                   * If y then restart
     BNE         DONE                    * Else finish
 
-SAVE_ADDRESSES:
+* CALL_GET_USER_INPUT and CALL_GET_OP are both wrapper methods for GET_USER_INPUT and GET_OP_CODE
+* Uses a wrapper so the control can easily manage saving their counter and retrieving it before 
+*   and after each of these calls.
+*
+* Uses D2 for the counter
+* Uses the address at CntrlCounterAddr
 
+CALL_GET_USER_INPUT:
+    JSR         SAVE_CONTROL_COUNTER
+    JSR         GET_USER_INPUT
+    JSR         READ_CONTROL_COUNTER
+    RTS
 
-READ_ADDRESSES:
+CALL_GET_OP:
+    JSR         SAVE_CONTROL_COUNTER
+    JSR         GET_OP_CODE
+    JSR         READ_CONTROL_COUNTER
+    RTS
+
+SAVE_CONTROL_COUNTER:
+    MOVE.B      D2,CntrlCounterAddr
+    CLR         D2
+    RTS
+
+READ_CONTROL_COUNTER:
+    CLR         D2
+    MOVE.B      CntrlCounterAddr,D2
+    RTS
 
 
 *************************
@@ -269,7 +294,7 @@ SAVE_HEX:
 AFTER_ADDRESS:
         CMP.B       #1,D7
         BEQ         GET_2ND_NUMBER
-        BNE         ALL_NUMBERS_DONE
+        BNE         GLOBAL_RTS
         
 GET_2ND_NUMBER:
         MOVE.L      D3,D5
