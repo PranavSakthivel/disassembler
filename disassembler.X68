@@ -29,10 +29,13 @@ CR                  EQU     $0D     * Ascii for carriage return
 LF                  EQU     $0D     * Ascii for carriage return
 StartAddress        EQU     $5000
 EndAddress          EQU     $5008   * difference of 4 or 8?
+
 EndlMsg             DC.B    '',CR,LF,0
 MSG_INVALID_OP      DC.B    'Invalid op code: ',0
 MSG_INVALID_EA      DC.B    'Invalid ea code: ',CR,LF,0
 IntroMsg            DC.B    'Please enter start and end hexadecimal addresses, one after the other: ',0
+ContinueReadingMsg  DC.B    'Please press "enter" to read another 15 lines, any other key will terminate the program',0
+RestartMsg          DC.B    'If you would like to start over type "y", if you would like to terminate type anything else',0
 OverflowError       DC.B    'Overflow Error',CR,LF,0
 MSG_INVALID_INPUT   DC.B    'Error: Invalid characters were entered. Please try again.',CR,LF,0
 
@@ -106,7 +109,57 @@ GLOBAL_RTS:
     ORG    $1000
 
 START:                  ; first instruction of program
-        JSR         GET_USER_INPUT
+    JSR             CLEAR_ALL_DATA_REGISTERS
+    * JSR             RUN_ALL_TESTS       * TBD Comment out for prod
+
+    JSR             GET_USER_INPUT      * Get and save user input
+    BRA             CHECK_IF_DONE_READING   * Begin loop of reading and printing
+
+CHECK_IF_DONE_READING:
+    BRA             READ_AND_WAIT_LOOP
+    * CMPA            StartAddress,EndAddress   * Check if start and end addresses are equal
+    BGE             CHECK_IF_RESTART    * If equal (or greater), assume done but first check if they want to restart
+    BLT             READ_AND_WAIT_LOOP  * Else continue to loop
+
+
+READ_AND_WAIT_LOOP:
+    CMP.L           #15,D2              * Check loop counter
+    BEQ             WAIT_FOR_USER       * If done printing required lines then we need to wait for user before we continue to read
+    ADDQ            #1,D2               * Increment counter
+
+    * JSR             READ_NEXT_WORD      * Read and store next instruction
+    MOVE.L          #$0000E65C,D7
+    JSR             GET_OP_CODE         * Get opcode, which will call into the correct EA
+    JSR             PRINT_NEWLINE
+    BRA             READ_AND_WAIT_LOOP  * Continue the loop
+
+WAIT_FOR_USER:
+    CLR         D1                      * Clear relevant data registers
+    CLR         D2
+    LEA         ContinueReadingMsg,A1   * Print message asking if they want to continue
+    JSR         PRINT_MSG_ENDL
+    MOVE.B      #5,D0  
+    TRAP        #15                     * Task 5: Read single character from the keyboard into D1.B
+
+    CMP.B       #$0D,D1                 * #$0D = 'enter' (key)
+    BEQ         CHECK_IF_DONE_READING   * If enter continue to read
+    BNE         CHECK_IF_RESTART        * Else check if they would like to restart
+
+CHECK_IF_RESTART:
+    CLR         D1
+    LEA         RestartMsg,A1           * Ask if they would like to restart
+    JSR         PRINT_MSG_ENDL
+    MOVE.B      #5,D0  
+    TRAP        #15                     * Task 5: Read single character from the keyboard into D1.B
+
+    CMP.B       #$79,D1                 * #$79 = 'y'
+    BEQ         START                   * If y then restart
+    BNE         DONE                    * Else finish
+
+SAVE_ADDRESSES:
+
+
+READ_ADDRESSES:
 
 
 *************************
