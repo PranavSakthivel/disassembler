@@ -37,7 +37,10 @@ IntroMsg            DC.B    'Please enter start and end hexadecimal addresses, o
 ContinueReadingMsg  DC.B    'Please press "enter" to read another 15 lines, any other key will terminate the program',0
 RestartMsg          DC.B    'If you would like to start over type "y", if you would like to terminate type anything else',0
 OverflowError       DC.B    'Overflow Error',CR,LF,0
-MSG_INVALID_INPUT   DC.B    'Error: Invalid characters were entered. Please try again.',CR,LF,0
+MSG_INVALID_INPUT   DC.B    'Error: Invalid characters were entered. Valid characters are 0-9 and A-F. Please try again.',CR,LF,0
+InvalidIOLengthMsg  DC.B    'Error: Invalid number of characters were entered. Each address must be 8 characters. Please try again.',CR,LF,0
+addrOnePrompt       DC.B    'Start address: ',0
+addrTwoPrompt       DC.B    'End address: ',0
 
 *************************
 *      Opcode Messages  *
@@ -109,7 +112,7 @@ GLOBAL_RTS:
     ORG    $1000
 
 START:                  ; first instruction of program
-    JSR             CLEAR_ALL_DATA_REGISTERS
+    * JSR             CLEAR_ALL_DATA_REGISTERS *TBD THIS MUST BE BELOW THE ORG TO WORK
     * JSR             RUN_ALL_TESTS       * TBD Comment out for prod
 
     JSR             CALL_GET_USER_INPUT     * Get and save user input
@@ -146,7 +149,7 @@ WAIT_FOR_USER:
     BNE         CHECK_IF_RESTART        * Else check if they would like to restart
 
 CHECK_IF_RESTART:
-    CLR         D1                      * Clear D1 because Trap #5 only will write a byte into it
+    CLR         D1                      * Clear D1 because Trap task #5 only will write a byte into it
     JSR         PRINT_NEWLINE           * Required formatting if they decided to stop midway through the program
     LEA         RestartMsg,A1           * Ask if they would like to restart
     JSR         PRINT_MSG_ENDL
@@ -162,7 +165,7 @@ CHECK_IF_RESTART:
 *   and after each of these calls.
 *
 * Uses D2 for the counter
-* Uses the address at CntrlCounterAddr
+* Uses the address at CntrlCounterAddr for storage
 
 CALL_GET_USER_INPUT:
     JSR         SAVE_CONTROL_COUNTER
@@ -186,16 +189,20 @@ READ_CONTROL_COUNTER:
     MOVE.B      CntrlCounterAddr,D2
     RTS
 
-
 *************************
 *         I/O           *
 *************************
     
 GET_USER_INPUT:     * Get user hex input
         LEA         IntroMsg,A1         * Load intro message into A1
-        
         JSR         PRINT_MSG_ENDL      * Print intro message
+
+        LEA         addrOnePrompt,A1    * Load intro message into A1
+        JSR         PRINT_MSG           * Print prompt
+
         JSR         GET_INPUT_AS_STRING * Get the user input as string
+        CMP.W       #$0008,D1           * User input length retuned in D1.W (max 80)
+        BLT         INVALID_IO_LENGTH   * Invalid length (aka address was less than 8 chars)
         
         MOVEA.L     A1,A2
         
@@ -299,6 +306,8 @@ AFTER_ADDRESS:
 GET_2ND_NUMBER:
         MOVE.L      D3,D5
         ADD.B       #1,D7
+        LEA         addrTwoPrompt,A1    * Load intro message into A1
+        JSR         PRINT_MSG           * Print prompt
         
         JSR         GET_INPUT_AS_STRING  * Get user input as string
         
@@ -331,7 +340,13 @@ INVALID_IO:
         LEA         MSG_INVALID_INPUT,A1    * Load error message
         JSR         PRINT_MSG_ENDL      * Print error message
         
-        BRA         START               * Restart program
+        BRA         GET_USER_INPUT               * Restart program
+
+INVALID_IO_LENGTH:
+    LEA         InvalidIOLengthMsg,A1       * Load error message
+    JSR         PRINT_MSG_ENDL              * Print error message
+    
+    BRA         GET_USER_INPUT              * Restart IO
 
 *************************
 *  Op Codes branching   *
