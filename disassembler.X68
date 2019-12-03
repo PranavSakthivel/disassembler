@@ -29,12 +29,23 @@ CR                  EQU     $0D     * Ascii for carriage return
 LF                  EQU     $0D     * Ascii for carriage return
 StartAddress        EQU     $5000
 EndAddress          EQU     $5008   * difference of 4 or 8?
+CntrlCounterAddr    EQU     $5012
 EndlMsg             DC.B    '',CR,LF,0
 MSG_INVALID_OP      DC.B    'Invalid op code: ',0
 MSG_INVALID_EA      DC.B    'Invalid ea code: ',CR,LF,0
 IntroMsg            DC.B    'Please enter start and end hexadecimal addresses, one after the other: ',0
+ContinueReadingMsg  DC.B    'Please press "enter" to read another 15 lines, any other key will terminate the program',0
+RestartMsg          DC.B    'If you would like to start over type "y", if you would like to terminate type anything else',0
 OverflowError       DC.B    'Overflow Error',CR,LF,0
-MSG_INVALID_INPUT   DC.B    'Error: Invalid characters were entered. Please try again.',CR,LF,0
+MSG_INVALID_INPUT   DC.B    'Error: Invalid characters were entered. Valid characters are 0-9 and A-F. Please try again.',CR,LF,0
+InvalidIOLengthMsg  DC.B    'Error: Invalid number of characters were entered. Each address must be 8 characters. Please try again.',CR,LF,0
+addrOnePrompt       DC.B    'Start address: ',0
+addrTwoPrompt       DC.B    'End address: ',0
+IS_REV              DS.W    2 
+CNTRI               DS.W    2 
+CNTRJ               DS.W    2 
+CNTR                DS.W    2 
+REVERSEBITS         DS.W    2 
 
 *************************
 *      Opcode Messages  *
@@ -106,8 +117,83 @@ GLOBAL_RTS:
     ORG    $1000
 
 START:                  ; first instruction of program
-        JSR         GET_USER_INPUT
+    * JSR             CLEAR_ALL_DATA_REGISTERS *TBD THIS MUST BE BELOW THE ORG TO WORK
+    * JSR             RUN_ALL_TESTS       * TBD Comment out for prod
 
+    JSR             CALL_GET_USER_INPUT     * Get and save user input
+    BRA             CHECK_IF_DONE_READING   * Begin loop of reading and printing
+
+CHECK_IF_DONE_READING:
+    BRA             READ_AND_WAIT_LOOP
+    * Ignore below until reading works
+    * CMPA            StartAddress,EndAddress   * Check if start and end addresses are equal
+    BGE             CHECK_IF_RESTART    * If equal (or greater), assume done but first check if they want to restart
+    BLT             READ_AND_WAIT_LOOP  * Else continue to loop
+
+
+READ_AND_WAIT_LOOP:
+    CMP.L           #15,D2              * Check loop counter
+    BEQ             WAIT_FOR_USER       * If done printing required lines then we need to wait for user before we continue to read
+    ADDQ            #1,D2               * Increment counter
+
+    * JSR             READ_NEXT_WORD      * Read and store next instruction
+    MOVE.L          #$0000E65C,D7       * TBD delete - just a place holder so things run before we read mem
+    JSR             CALL_GET_OP         * Get opcode, which will call into the correct EA
+    JSR             PRINT_NEWLINE
+    BRA             READ_AND_WAIT_LOOP  * Continue the loop
+
+WAIT_FOR_USER:
+    CLR         D1                      * Clear relevant data registers
+    CLR         D2
+    LEA         ContinueReadingMsg,A1   * Print message asking if they want to continue
+    JSR         PRINT_MSG_ENDL
+    MOVE.B      #5,D0  
+    TRAP        #15                     * Task 5: Read single character from the keyboard into D1.B
+
+    CMP.B       #$0D,D1                 * #$0D = 'enter' (key)
+    BEQ         CHECK_IF_DONE_READING   * If enter continue to read
+    BNE         CHECK_IF_RESTART        * Else check if they would like to restart
+
+CHECK_IF_RESTART:
+    CLR         D1                      * Clear D1 because Trap task #5 only will write a byte into it
+    JSR         PRINT_NEWLINE           * Required formatting if they decided to stop midway through the program
+    LEA         RestartMsg,A1           * Ask if they would like to restart
+    JSR         PRINT_MSG_ENDL
+    MOVE.B      #5,D0  
+    TRAP        #15                     * Task 5: Read single character from the keyboard into D1.B
+
+    CMP.B       #$79,D1                 * #$79 = 'y'
+    BEQ         START                   * If y then restart
+    BNE         DONE                    * Else finish
+
+* CALL_GET_USER_INPUT and CALL_GET_OP are both wrapper methods for GET_USER_INPUT and GET_OP_CODE
+* Uses a wrapper so the control can easily manage saving their counter and retrieving it before 
+*   and after each of these calls.
+*
+* Uses D2 for the counter
+* Uses the address at CntrlCounterAddr for storage
+
+CALL_GET_USER_INPUT:
+    JSR         SAVE_CONTROL_COUNTER
+    JSR         GET_USER_INPUT
+    JSR         READ_CONTROL_COUNTER
+    RTS
+
+CALL_GET_OP:
+    JSR         SAVE_CONTROL_COUNTER
+    JSR         GET_OP_CODE
+    JSR         READ_CONTROL_COUNTER
+    RTS
+
+SAVE_CONTROL_COUNTER:
+    MOVE.B      D2,CntrlCounterAddr
+    CLR         D2
+    RTS
+
+READ_CONTROL_COUNTER:
+    CLR         D2
+    MOVE.B      CntrlCounterAddr,D2
+    RTS
 
 *************************
 *         I/O           *
@@ -115,9 +201,14 @@ START:                  ; first instruction of program
     
 GET_USER_INPUT:     * Get user hex input
         LEA         IntroMsg,A1         * Load intro message into A1
-        
         JSR         PRINT_MSG_ENDL      * Print intro message
+
+        LEA         addrOnePrompt,A1    * Load intro message into A1
+        JSR         PRINT_MSG           * Print prompt
+
         JSR         GET_INPUT_AS_STRING * Get the user input as string
+        CMP.W       #$0008,D1           * User input length retuned in D1.W (max 80)
+        BLT         INVALID_IO_LENGTH   * Invalid length (aka address was less than 8 chars)
         
         MOVEA.L     A1,A2
         
@@ -216,11 +307,13 @@ SAVE_HEX:
 AFTER_ADDRESS:
         CMP.B       #1,D7
         BEQ         GET_2ND_NUMBER
-        BNE         ALL_NUMBERS_DONE
+        BNE         GLOBAL_RTS
         
 GET_2ND_NUMBER:
         MOVE.L      D3,D5
         ADD.B       #1,D7
+        LEA         addrTwoPrompt,A1    * Load intro message into A1
+        JSR         PRINT_MSG           * Print prompt
         
         JSR         GET_INPUT_AS_STRING  * Get user input as string
         
@@ -253,7 +346,13 @@ INVALID_IO:
         LEA         MSG_INVALID_INPUT,A1    * Load error message
         JSR         PRINT_MSG_ENDL      * Print error message
         
-        BRA         START               * Restart program
+        BRA         GET_USER_INPUT               * Restart program
+
+INVALID_IO_LENGTH:
+    LEA         InvalidIOLengthMsg,A1       * Load error message
+    JSR         PRINT_MSG_ENDL              * Print error message
+    
+    BRA         GET_USER_INPUT              * Restart IO
 
 *************************
 *  Op Codes branching   *
@@ -580,6 +679,8 @@ OP_ROR:
     LEA         RorMsg,A1
     JSR         PRINT_MSG
     JSR         PRINT_OP_SIZE
+    JSR         SHIFT_SUB
+    JSR         PRINT_FINAL
     RTS
 
 PRINT_OP_SIZE:  * Check the size of the instruction
@@ -628,13 +729,13 @@ DST_MODE:
     RTS
 SRC_MODE:
     MOVE.W  D7, D3
-    ANDI.W  #$0380 ,D3
+    ANDI.W  #$0038 ,D3
     LSR.W   #3,D3
     MOVE.B  D3,$7002
     RTS
 SRC_REGI:
-    MOVE.W D7, $7003
-    ANDI.W #$0007 ,$7003
+    MOVE.B D7, $7003
+    ANDI.B #$0007 ,$7003
     RTS
 
 MOVE_SRC:                       * Addressing Register comparision
@@ -658,6 +759,7 @@ WORD_SRC:
     MOVE.B  $9002, (A2)+    * D6
     MOVE.B  $9003, (A2)+    * D6
     MOVE.B  #$2C, (A2)+     * ,
+    MOVE.B  #$00,(A2)+      * NULL
     MOVE.L  D6,$4000 
     MOVE.L  D5,D6
     RTS
@@ -671,13 +773,14 @@ LONG_SRC:
     MOVE.B  $9001, (A2)+    * D6
     MOVE.B  $9002, (A2)+    * D6
     MOVE.B  $9003, (A2)+    * D6
-    MOVE.W  $4000,D6           
+    MOVE.L  $4000,D6           
     JSR     DATA_SUB        * Data
     MOVE.B  $9000, (A2)+    * D6
     MOVE.B  $9001, (A2)+    * D6
     MOVE.B  $9002, (A2)+    * D6
     MOVE.B  $9003, (A2)+    * D6
     MOVE.B  #$2C, (A2)+     * ,
+    MOVE.B  #$00,(A2)+      * NULL
     MOVE.L  D6,$4000 
     MOVE.L  D5,D6
     RTS
@@ -690,6 +793,7 @@ IMM_DATA:
     MOVE.B  $9002, (A2)+    * D6
     MOVE.B  $9003, (A2)+    * D6
     MOVE.B  #$2C, (A2)+     * ,
+    MOVE.B  #$00,(A2)+      * NULL
     MOVE.L  D6,$4000 
     MOVE.L  D5,D6
     RTS
@@ -706,8 +810,9 @@ PC_D16:
     MOVE.B  #$43, (A2)+     * C
     MOVE.B  #$29, (A2)+     * )
     MOVE.B  #$2C, (A2)+     * ,
-    MOVE.B  D6,$4000 
-    MOVE.B  D5,D6
+    MOVE.B  #$00,(A2)+      * NULL
+    MOVE.L  D6,$4000 
+    MOVE.L  D5,D6
     RTS
 PC_D8:
     MOVE.B  #$28, (A2)+     * (
@@ -724,8 +829,9 @@ PC_D8:
     MOVE.B  $9001, (A2)+
     MOVE.B  #$29, (A2)+     * )
     MOVE.B  #$2C, (A2)+     * ,
-    MOVE.B  D6,$4000 
-    MOVE.B  D5,D6
+    MOVE.B  #$00,(A2)+      * NULL
+    MOVE.L  D6,$4000 
+    MOVE.L  D5,D6
     RTS
  
 MOVE_SEA:
@@ -754,13 +860,15 @@ D_SEA:
     MOVE.B  #$44, (A2)+
     ADDI.B  #$30, $7003
     MOVE.B  $7003, (A2)+
-    MOVE.B  #$2C, (A2)+
+    MOVE.B  #$2C, (A2)+     * ,
+    MOVE.B  #$00,(A2)+      * NULL
     RTS
 A_SEA:
     MOVE.B  #$41, (A2)+
     ADDI.B  #$30, $7003
     MOVE.B  $7003, (A2)+
-    MOVE.B  #$2C, (A2)+
+    MOVE.B  #$2C, (A2)+     * ,
+    MOVE.B  #$00,(A2)+      * NULL
     RTS
 AIN_SEA:
     MOVE.B  #$28, (A2)+
@@ -768,7 +876,8 @@ AIN_SEA:
     ADDI.B  #$30, $7003
     MOVE.B  $7003, (A2)+
     MOVE.B  #$29, (A2)+
-    MOVE.B  #$2C, (A2)+
+    MOVE.B  #$2C, (A2)+     * ,
+    MOVE.B  #$00,(A2)+      * NULL
     RTS
 AP_SEA:
     MOVE.B  #$28, (A2)+
@@ -777,7 +886,8 @@ AP_SEA:
     MOVE.B  $7003, (A2)+
     MOVE.B  #$29, (A2)+
     MOVE.B  #$2B, (A2)+
-    MOVE.B  #$2C, (A2)+
+    MOVE.B  #$2C, (A2)+     * ,
+    MOVE.B  #$00,(A2)+      * NULL
     RTS    
 AM_SEA:
     MOVE.B  #$2D, (A2)+
@@ -786,7 +896,8 @@ AM_SEA:
     ADDI.B  #$30, $7003
     MOVE.B  $7003, (A2)+
     MOVE.B  #$29, (A2)+
-    MOVE.B  #$2C, (A2)+
+    MOVE.B  #$2C, (A2)+     * ,
+    MOVE.B  #$00,(A2)+      * NULL
     RTS
 AD16_SEA:
     MOVE.B  #$28, (A2)+     * (
@@ -802,8 +913,9 @@ AD16_SEA:
     MOVE.B  $7003, (A2)+    
     MOVE.B  #$29, (A2)+     * )
     MOVE.B  #$2C, (A2)+     * ,
-    MOVE.B  D6,$4000 
-    MOVE.B  D5,D6
+    MOVE.B  #$00,(A2)+      * NULL
+    MOVE.L  D6,$4000 
+    MOVE.L  D5,D6
     RTS
 AD8_SEA:
     MOVE.B  #$28, (A2)+     * (
@@ -821,8 +933,9 @@ AD8_SEA:
     MOVE.B  $9001, (A2)+
     MOVE.B  #$29, (A2)+     * )
     MOVE.B  #$2C, (A2)+     * ,
-    MOVE.B  D6,$4000        *$4000 just for other stuff
-    MOVE.B  D5,D6
+    MOVE.B  #$00,(A2)+      * NULL
+    MOVE.L  D6,$4000        *$4000 just for other stuff
+    MOVE.L  D5,D6
     RTS    
 MOVE_DEA:
     JSR     DST_MODE
@@ -858,42 +971,44 @@ WORD_DEA:
     MOVE.B  $9001, (A3)+    * D6
     MOVE.B  $9002, (A3)+    * D6
     MOVE.B  $9003, (A3)+    * D6
-    MOVE.B  #$2C, (A3)+     * ,
+    *MOVE.B  #$2C, (A3)+     * ,
+    MOVE.B  #$00,(A3)+      * NULL
     MOVE.L  D6,$4000 
     MOVE.L  D5,D6
     RTS
 LONG_DEA:
-    MOVE.B  #$24, (A2)+     * $
+    MOVE.B  #$24, (A3)+     * $
     MOVE.L  D6,$4000        *temp
     MOVE.B  #16,D2
     LSR.L   D2,D6   
     JSR     DATA_SUB        * Data
-    MOVE.B  $9000, (A2)+    * D6
-    MOVE.B  $9001, (A2)+    * D6
-    MOVE.B  $9002, (A2)+    * D6
-    MOVE.B  $9003, (A2)+    * D6
-    MOVE.W  $4000,D6           
+    MOVE.B  $9000, (A3)+    * D6
+    MOVE.B  $9001, (A3)+    * D6
+    MOVE.B  $9002, (A3)+    * D6
+    MOVE.B  $9003, (A3)+    * D6
+    MOVE.L  $4000,D6           
     JSR     DATA_SUB        * Data
-    MOVE.B  $9000, (A2)+    * D6
-    MOVE.B  $9001, (A2)+    * D6
-    MOVE.B  $9002, (A2)+    * D6
-    MOVE.B  $9003, (A2)+    * D6
-    MOVE.B  #$2C, (A2)+     * ,
+    MOVE.B  $9000, (A3)+    * D6
+    MOVE.B  $9001, (A3)+    * D6
+    MOVE.B  $9002, (A3)+    * D6
+    MOVE.B  $9003, (A3)+    * D6
+    *MOVE.B  #$2C, (A3)+     * ,
+    MOVE.B  #$00,(A3)+      * NULL
     MOVE.L  D6,$4000 
     MOVE.L  D5,D6
     RTS
 
 D_EA:
-    
     MOVE.B  #$44, (A3)+
     ADDI.B  #$30, $7000
     MOVE.B  $7000, (A3)+
+    MOVE.B  #$00,(A3)+      * NULL
     RTS
 A_EA:
     MOVE.B  #$41, (A3)+
     ADDI.B  #$30, $7000
     MOVE.B  $7000, (A3)+
-
+    MOVE.B  #$00,(A3)+      * NULL
     RTS
 AIN_EA:
     MOVE.B  #$28, (A3)+
@@ -901,7 +1016,7 @@ AIN_EA:
     ADDI.B  #$30, $7000
     MOVE.B  $7000, (A3)+
     MOVE.B  #$29, (A3)+
-
+    MOVE.B  #$00,(A3)+      * NULL
     RTS
 AP_EA:
     MOVE.B  #$28, (A3)+
@@ -910,7 +1025,7 @@ AP_EA:
     MOVE.B  $7000, (A3)+
     MOVE.B  #$29, (A3)+
     MOVE.B  #$2B, (A3)+
-
+    MOVE.B  #$00,(A3)+      * NULL
     RTS    
 AM_EA:
     MOVE.B  #$2D, (A3)+     * -
@@ -919,11 +1034,11 @@ AM_EA:
     ADDI.B  #$30, $7000     * 0-7 in ascii
     MOVE.B  $7000, (A3)+    * 0-7
     MOVE.B  #$29, (A3)+     * )
-
+    MOVE.B  #$00,(A3)+      * NULL
     RTS
 AD16_EA:
-    MOVE.B  #$28, (A2)+     * (
-    MOVE.B  #$24, (A2)+     * $
+    MOVE.B  #$28, (A3)+     * (
+    MOVE.B  #$24, (A3)+     * $
     JSR     DATA_SUB        * Data
     MOVE.B  $9000, (A3)+    * D6
     MOVE.B  $9001, (A3)+    * D6
@@ -934,6 +1049,7 @@ AD16_EA:
     ADDI.B  #$30, $7000
     MOVE.B  $7000, (A3)+    
     MOVE.B  #$29, (A3)+     * )
+    MOVE.B  #$00,(A3)+      * NULL
     RTS
 AD8_EA:
     MOVE.B  #$28, (A3)+     * (
@@ -950,6 +1066,7 @@ AD8_EA:
     MOVE.B  $9000, (A3)+
     MOVE.B  $9001, (A3)+
     MOVE.B  #$29, (A3)+     * )
+    MOVE.B  #$00,(A3)+      * NULL
     RTS 
 DATA_SUB:
         MOVE.W  D6, D0
@@ -1027,10 +1144,11 @@ DATA8_SUB2:
         BRA     NEXT7
 NUM7    MOVE.B  #$44,$9000
 NEXT7   ANDI.W  #$0007,D0
+        ADD.B   #$30,D0
         MOVE.B  D0,$9001
         RTS
 
-OPMODE:
+OPMODE_SUB:
     JSR     SRC_MODE
     JSR     SRC_REGI
     JSR     DST_MODE
@@ -1043,11 +1161,11 @@ OPMODE:
     BEQ     DD_WORD             * 
     CMPI.B  #2, $7001
     BEQ     DD_LONG             * 
-    CMPI.B  #3, $7001
-    BEQ     DS_BYTE             * 
     CMPI.B  #4, $7001
-    BEQ     DS_WORD             * 
+    BEQ     DS_BYTE             * 
     CMPI.B  #5, $7001
+    BEQ     DS_WORD             * 
+    CMPI.B  #6, $7001
     BEQ     DS_LONG             * 
     JSR     INVALID_EA
     RTS 
@@ -1059,6 +1177,8 @@ DD_BYTE:
     MOVE.B  #$44, (A3)+            * D
     ADDI.B  #$30, $7000            * 0-7 in ascii
     MOVE.B  $7000, (A3)+           * 0-7
+    MOVE.B  #$00,(A3)+             * NULL
+    RTS
 DD_WORD:
     MOVE.B  #$2E, (A2)+            * .
     MOVE.B  #$57, (A2)+            * W
@@ -1067,6 +1187,8 @@ DD_WORD:
     MOVE.B  #$44, (A3)+            * D
     ADDI.B  #$30, $7000            * 0-7 in ascii
     MOVE.B  $7000, (A3)+           * 0-7
+    MOVE.B  #$00,(A3)+             * NULL
+    RTS
 DD_LONG:
     MOVE.B  #$2E, (A2)+            * .
     MOVE.B  #$4C, (A2)+            * L
@@ -1075,6 +1197,8 @@ DD_LONG:
     MOVE.B  #$44, (A3)+            * D
     ADDI.B  #$30, $7000            * 0-7 in ascii
     MOVE.B  $7000, (A3)+           * 0-7
+    MOVE.B  #$00,(A3)+             * NULL
+    RTS
 DS_BYTE:
     MOVE.B  #$2E, (A2)+            * .
     MOVE.B  #$42, (A2)+            * B
@@ -1083,8 +1207,11 @@ DS_BYTE:
     ADDI.B  #$30, $7000            * 0-7 in ascii
     MOVE.B  $7000, (A2)+           * 0-7
     MOVE.B  #$2C, (A2)+            * ,
+    MOVE.B  #$00,(A2)+             * NULL
+    MOVE.B  $7003,$7000
+    MOVE.B  $7002,$7001
     JSR     MOVE_DEA2
-
+    RTS
 DS_WORD:
     MOVE.B  #$2E, (A2)+            * .
     MOVE.B  #$57, (A2)+            * W
@@ -1092,8 +1219,12 @@ DS_WORD:
     MOVE.B  #$44, (A2)+            * D
     ADDI.B  #$30, $7000            * 0-7 in ascii
     MOVE.B  $7000, (A2)+           * 0-7
-    MOVE.B  #$2C, (A2)+            * ,    
+    MOVE.B  #$2C, (A2)+            * ,
+    MOVE.B  #$00,(A2)+             * NULL
+    MOVE.B  $7003,$7000
+    MOVE.B  $7002,$7001    
     JSR     MOVE_DEA2
+    RTS
 DS_LONG:
     MOVE.B  #$2E, (A2)+            * .
     MOVE.B  #$4C, (A2)+            * L
@@ -1102,14 +1233,441 @@ DS_LONG:
     ADDI.B  #$30, $7000            * 0-7 in ascii
     MOVE.B  $7000, (A2)+           * 0-7
     MOVE.B  #$2C, (A2)+            * ,
+    MOVE.B  #$00,(A2)+             * NULL
+    MOVE.B  $7003,$7000
+    MOVE.B  $7002,$7001
     JSR     MOVE_DEA2
+    RTS
+SHIFT_SUB:
+    JSR     DST_REGI
+    JSR     SRC_REGI
+    MOVEA.L #$7500,A2
+    MOVEA.L #$8000,A3
+    MOVE.L  D7, D0
+    ANDI.L  #$0020, D0 
+    LSR.B   #5,D0                  * Shifting 7 bits
+    MOVE.B  D0,$4000
+    CMPI.B  #1,$4000
+    BEQ     SHFT_CNT
+    MOVE.B  #$23, (A2)+            * #
+    BRA     SHFT_RET
+SHFT_CNT
+    MOVE.B  #$44, (A2)+            * D
+SHFT_RET    
+    ADDI.B  #$30, $7000            * 0-7 in ascii
+    MOVE.B  $7000, (A2)+           * 0-7
+    MOVE.B  #$2C, (A2)+            * ,
+    MOVE.B  #$00,(A2)+             * NULL
+    MOVE.B  #$44, (A3)+            * D
+    ADDI.B  #$30, $7003            * 0-7 in ascii
+    MOVE.B  $7003, (A3)+           * 0-7
+    MOVE.B  #$00,(A3)+             * NULL
+    RTS
+DISP_8_BIT:
+    RTS            
+MOVEQ_SUB:                          *MOVEQ Q Q Q
+    JSR     DST_REGI
+    MOVEA.L #$7500,A2
+    MOVEA.L #$8000,A3
+    MOVE.L  D7,D6
+    MOVE.L  D7,D0
+    ANDI.L  #$0080,D0 
+    LSR.B   #7,D0                  *Shifting 7 bits
+    MOVE.L  D0,$4000
+    JSR     DATA8_SUB
+    MOVE.B  #$23, (A2)+            * #
+    MOVE.B  #$23, (A2)+            * $
+    CMPI.B  #1,$4000
+    BEQ     ONES 
+    MOVE.B  #$30, (A2)+            * 0
+    MOVE.B  #$30, (A2)+            * 0
+    MOVE.B  #$30, (A2)+            * 0
+    MOVE.B  #$30, (A2)+            * 0
+    MOVE.B  #$30, (A2)+            * 0
+    MOVE.B  #$30, (A2)+            * 0
+    BRA     ZEROS
+ONES
+    MOVE.B  #$46, (A2)+            * F
+    MOVE.B  #$46, (A2)+            * F
+    MOVE.B  #$46, (A2)+            * F
+    MOVE.B  #$46, (A2)+            * F
+    MOVE.B  #$46, (A2)+            * F
+    MOVE.B  #$46, (A2)+            * F
+ZEROS
+    MOVE.B  $9000,(A2)+            * The hex value in DATA
+    MOVE.B  $9001,(A2)+            *
+    MOVE.B  #$2C, (A2)+            * ,
+    MOVE.B  #$00,(A2)+             * NULL
+    MOVE.B  #$44, (A3)+            * D
+    ADDI.B  #$30, $7000            * 0-7 in ascii
+    MOVE.B  $7000, (A3)+           * 0-7
+    MOVE.B  #$00,(A3)+             * NULL
+    RTS
+ADDA_SUB:
+    JSR     SRC_MODE
+    JSR     SRC_REGI
+    JSR     DST_MODE
+    JSR     DST_REGI
+    MOVEA.L #$7500,A2
+    MOVEA.L #$8000,A3
+    CMPI.B  #3, $7001
+    BEQ     ADD_WORD             * 
+    CMPI.B  #7, $7001
+    BEQ     ADD_LONG             * 
+ADD_WORD
+    MOVE.B  #$2E, (A2)+            * .
+    MOVE.B  #$57, (A2)+            * W
+    MOVE.B  #$20, (A2)+            *  [Space]
+    JSR     MOVE_SEA2
+    MOVE.B  #$41, (A3)+            * A
+    ADDI.B  #$30, $7000            * 0-7 in ascii
+    MOVE.B  $7000, (A3)+           * 0-7
+    MOVE.B  #$00,(A3)+             * NULL
+    RTS
+ADD_LONG
+    MOVE.B  #$2E, (A2)+            * .
+    MOVE.B  #$4C, (A2)+            * L
+    MOVE.B  #$20, (A2)+            *  [Space]
+    JSR     MOVE_SEA2
+    MOVE.B  #$41, (A3)+            * A
+    ADDI.B  #$30, $7000            * 0-7 in ascii
+    MOVE.B  $7000, (A3)+           * 0-7
+    MOVE.B  #$00,(A3)+             * NULL
+    RTS
+ADDQ_SUB:
+    JSR     SRC_MODE
+    JSR     SRC_REGI
+    JSR     DST_REGI
+    MOVEA.L #$7500,A2
+    MOVEA.L #$8000,A3
+    MOVE.B  #$23, (A2)+            * #
+    MOVE.B  #$24, (A2)+            * $
+    ADDI.B  #$30, $7000            * 0-7 in ascii
+    MOVE.B  $7000, (A2)+           * 0-7
+    MOVE.B  #$2C, (A2)+            * ,
+    MOVE.B  #$00,(A2)+             * NULL
+    MOVE.B  $7003,$7000
+    MOVE.B  $7002,$7001
+    JSR     MOVE_DEA2
+    RTS
+MOVEM_SUB:
+    JSR     SRC_MODE
+    JSR     SRC_REGI
+    MOVE.W  #$0, IS_REV
+    MOVEA.L #$7500,A2
+    MOVEA.L #$8000,A3
+    CMPI.B  #0,$7002
+    BEQ     INVALID_EA
+    CMPI.B  #1,$7002
+    BEQ     INVALID_EA
+    CMPI.B  #7,$7002
+    BEQ     MOVEMIN
 
-MOVEQ_SUB:    
+MOVEMBACK    
+    CMPI.B  #4, $7002
+    BEQ CONT1
+    MOVE.W #$1, IS_REV 
+    
+    MOVE.W #0, D0
+    MOVE.W #0, CNTRI
+    MOVE.W #0, CNTRJ
+    MOVE.W #0, REVERSEBITS
+LOOP_BIT  
+    MOVE.W D6, $4004
+    MOVE.W #1, D1  
+    LSL.W  D0, D1
+    AND.W  D1, $4004
+    
+    CMPI.W #0, $4004
+    BEQ CONT_LOOP
+    MOVE.W #$F, D1
+    SUB.W  D0, D1
+    MOVE.W #1, D2
+    LSL.W  D1, D2
+    OR.W  D2,  REVERSEBITS
+   
+    
+CONT_LOOP 
+    ADDI.W #$1, D0
+    CMPI.W #$F, D0
+    BNE LOOP_BIT
+    MOVE.W REVERSEBITS, D6
+    
+CONT1    
+    MOVE.W  D6,$4004                *Start of Dn-Dn/An-An
+    MOVE.B  $4005,D0
+    MOVE.B  #$FF,$4500
+    CMPI.B  #0,D0
+    BEQ     LOOPMOUT2
+    MOVE.B  #0,$4500                *Start
+    MOVE.B  #7,$4501                *End
+LOOPM1
+    MOVE.B  D0,$4502
+    ANDI.B  #$01,$4502
+    CMPI.B  #1,$4502
+    BEQ     LOOPMOUT
+    SUBI.B  #1,$4501
+    CMPI.B  #0,$4501
+    BEQ     LOOPMOUT
+    LSR.B   #1,D0
+    BRA     LOOPM1
+LOOPMOUT
+    MOVE.B  $4005,D0
+LOOPM2    
+    MOVE.B  D0,$4502
+    ANDI.B  #$80,$4502
+    CMPI.B  #$80,$4502
+    BEQ     LOOPMOUT2
+    ADDI.B  #1,$4500
+    CMPI.B  #7,$4500
+    BGE     LOOPMOUT2
+    LSL.B   #1,D0
+    BRA     LOOPM2
+LOOPMOUT2
+    MOVE.W  D6,$4004                *Start of Dn-Dn/An-An
+    MOVE.B  $4004,D0
+    MOVE.B  #$FF,$4503
+    CMPI.B  #0,D0
+    BEQ     LOOPMOUT4
+    MOVE.B  #0,$4503                *Start
+    MOVE.B  #7,$4504                *End
+    
+LOOPM4
+    MOVE.B  D0,$4502
+    ANDI.B  #$01,$4502
+    CMPI.B  #1,$4502
+    BEQ     LOOPMOUT3
+    SUBI.B  #1,$4504
+    CMPI.B  #0,$4504
+    BEQ     LOOPMOUT3
+    LSR.B   #1,D0
+    BRA     LOOPM4
+LOOPMOUT3
+    MOVE.B  $4005,D0
+LOOPM5   
+    MOVE.B  D0,$4502
+    ANDI.B  #$80,$4502
+    CMPI.B  #$80,$4502
+    BEQ     LOOPMOUT4
+    ADDI.B  #1,$4503
+    CMPI.B  #7,$4503
+    BGE     LOOPMOUT4
+    LSL.B   #1,D0
+    BRA     LOOPM5
+LOOPMOUT4
+    
+    MOVE.W  D7, D0
+    ANDI.W  #$0400, D0 
+    LSR.W   #8,D0                  *Shifting 8 bits
+    LSR.W   #2,D0                  *Shifting 2 bits
+    MOVE.B  D0,$4000
+    CMPI.B  #1,$4000                * is direction 1
+    BEQ     MOVE_MEM_TO_REG
+    
+    BRA     MOVE_REG_TO_MEM       *BREAK
+
+
+MOVE_MEM_TO_REG
+    JSR     MOVE_SEA2
+    CMPI.B  #$FF,$4500
+    BEQ     MOVEM_AN
+    MOVE.B  $4501,D1
+    CMP.B   $4500,D1
+    BEQ     MOVEM_SD
+    
+    MOVE.B  #$41, (A3)+            * A
+    ADDI.B  #$30, $4500            * start in ascii
+    MOVE.B  $4500, (A3)+           * the start
+    MOVE.B  #$2D, (A3)+            * -
+    MOVE.B  #$41, (A3)+            * A
+    ADDI.B  #$30, $4501            * end in ascii
+    MOVE.B  $4501, (A3)+           * end
+    BRA     MOVEM_SDOUT
+MOVEM_SD
+    MOVE.B  #$41, (A3)+            * A
+    ADDI.B  #$30, $4500            * start in ascii
+    MOVE.B  $4500, (A3)+           * start    
+MOVEM_SDOUT
+    CMPI.B  #$FF,$4503
+    BEQ     MOVEM_AN2
+    MOVE.B  #$2F, (A3)+            * /
+    
+MOVEM_AN   
+    MOVE.B  $4504,D1 
+    CMP.B   $4503,D1
+    BEQ     MOVEM_SA
+    MOVE.B  #$44, (A3)+            * D
+    ADDI.B  #$30, $4503            * start in ascii
+    MOVE.B  $4503, (A3)+           * the start
+    MOVE.B  #$2D, (A3)+            * -
+    MOVE.B  #$44, (A3)+            * D
+    ADDI.B  #$30, $4504            * end in ascii
+    MOVE.B  $4504, (A3)+           * end
+    BRA     MOVEM_SAOUT
+MOVEM_SA
+    MOVE.B  #$44, (A3)+            * D
+    ADDI.B  #$30, $4503            * D - start in ascii
+    MOVE.B  $4503, (A3)+           * Start
+MOVEM_SAOUT
+MOVEM_AN2
+    BRA     MOVEM_OUT
+    
+MOVE_REG_TO_MEM 
+    CMPI.B  #$FF,$4503
+    BEQ     MOVEM_AN3
+    MOVE.B  $4504,D1
+    CMP.B   $4503,D1
+    BEQ     MOVEM_SA3
+    MOVE.B  #$44, (A2)+            * D
+    ADDI.B  #$30, $4503            * start in ascii
+    MOVE.B  $4503, (A2)+           * the start
+    MOVE.B  #$2D, (A2)+            * -
+    MOVE.B  #$44, (A2)+            * D
+    ADDI.B  #$30, $4504            * end in ascii
+    MOVE.B  $4504, (A2)+           * end
+    BRA     MOVEM_SAOUT3
+MOVEM_SA3
+    MOVE.B  #$44, (A2)+            * D
+    ADDI.B  #$30, $4503            * D - start in ascii
+    MOVE.B  $4503, (A2)+           * Start
+MOVEM_SAOUT3
+    CMPI.B  #$FF,$4500
+    BEQ     MOVEM_AN4
+    MOVE.B  #$2F, (A2)+            * /
+MOVEM_AN3
+    MOVE.B  $4501,D1
+    CMP.B   $4500,D1
+    BEQ     MOVEM_SD4
+    
+    MOVE.B  #$41, (A2)+            * A
+    ADDI.B  #$30, $4500            * start in ascii
+    MOVE.B  $4500, (A2)+           * the start
+    MOVE.B  #$2D, (A2)+            * -
+    MOVE.B  #$41, (A2)+            * A
+    ADDI.B  #$30, $4501            * end in ascii
+    MOVE.B  $4501, (A2)+           * end
+    BRA     MOVEM_SDOUT4
+MOVEM_SD4
+    MOVE.B  #$41, (A2)+            * A
+    ADDI.B  #$30, $4500            * start in ascii
+    MOVE.B  $4500, (A2)+           * start
+MOVEM_AN4
+    
+
+MOVEM_SDOUT4
+    MOVE.B  #$2C,(A2)+             * ,
+    MOVE.B  #$00,(A2)+             * NULL
+    MOVE.B  $7003,$7000
+    MOVE.B  $7002,$7001    
+    JSR     MOVE_DEA2
+    BRA     MOVEM_OUT
+MOVEMIN
+    CMPI.B  #2,7003
+    BGE     INVALID_EA
+    BRA     MOVEMBACK
+MOVEM_OUT
+    MOVE.B  #$00,(A2)+             * NULL
+    MOVE.B  #$00,(A3)+             * NULL
+    RTS
+LEA_SUB:
+    MOVEA.L #$7500,A2
+    MOVEA.L #$8000,A3
+    JSR     SRC_MODE
+    JSR     SRC_REGI
+    JSR     DST_MODE
+    JSR     DST_REGI
+    CMPI.B  #0,$7002
+    BEQ     INVALID_EA
+    CMPI.B  #1,$7002
+    BEQ     INVALID_EA
+    CMPI.B  #3,$7002
+    BEQ     INVALID_EA
+    CMPI.B  #4,$7002
+    BEQ     INVALID_EA
+    CMPI.B  #7,$7002
+    BEQ     LEA_ERROR
+LEA_BACK
+    JSR MOVE_SEA2
+    MOVE.B  #$41, (A3)+     * A
+    ADDI.B  #$30, $7000     * 0-7 in ascii
+    MOVE.B  $7000, (A3)+    * 0-7
+    MOVE.B  #$00,(A3)+      * NULL
+    BRA     LEA_AFTER
+LEA_ERROR
+    CMPI.B  #2,$7003
+    BGE     INVALID_EA
+    BRA     LEA_BACK
+LEA_AFTER
+    RTS
+JSR_SUB:
+    MOVEA.L #$7500,A2
+    MOVEA.L #$8000,A3
+    JSR     SRC_MODE
+    JSR     SRC_REGI
+    JSR     DST_MODE
+    JSR     DST_REGI
+    CMPI.B  #0,$7002
+    BEQ     INVALID_EA
+    CMPI.B  #1,$7002
+    BEQ     INVALID_EA
+    CMPI.B  #3,$7002
+    BEQ     INVALID_EA
+    CMPI.B  #4,$7002
+    BEQ     INVALID_EA
+    CMPI.B  #7,$7002
+    BEQ     JSR_ERROR
+JSR_BACK
+    MOVE.B  $7003,$7000
+    MOVE.B  $7002,$7001
+    JSR     MOVE_DEA2
+    BRA     JSR_AFTER
+JSR_ERROR
+    CMPI.B  #2,$7003
+    BGE     INVALID_EA
+    BRA     JSR_BACK
+JSR_AFTER
+    RTS
+NOT_SUB:
+    MOVEA.L #$7500,A2
+    MOVEA.L #$8000,A3
+    JSR     SRC_MODE
+    JSR     SRC_REGI
+    JSR     DST_MODE
+    JSR     DST_REGI
+    CMPI.B  #1,$7002
+    BEQ     INVALID_EA
+    CMPI.B  #7,$7002
+    BEQ     NOT_ERROR
+NOT_BACK
+    MOVE.B  $7003,$7000
+    MOVE.B  $7002,$7001
+    JSR     MOVE_DEA2
+    BRA     NOT_AFTER
+NOT_ERROR
+    CMPI.B  #2,$7003
+    BGE     INVALID_EA
+    BRA     NOT_BACK
+NOT_AFTER
+    RTS
+
+PRINT_FINAL
+    MOVE.B  #$00,(A2)+      *NULL
+    MOVEA.L #$7500,A1
+    MOVE.B  #14,D0
+    TRAP    #15
+    MOVE.B  #$00,(A3)+      *NULL    
+    MOVEA.L #$8000,A1
+    MOVE.B  #14,D0
+    TRAP    #15
+    RTS
 INVALID_EA:
     LEA     MSG_INVALID_EA,A1
     MOVE.B  #14,D0
     TRAP    #15
+    MOVE.B  #$00,(A2)+             * NULL
+    MOVE.B  #$00,(A3)+             * NULL
     RTS
+
 
 *************************
 *        Tests          *
