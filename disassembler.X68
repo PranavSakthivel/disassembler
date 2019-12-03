@@ -120,6 +120,7 @@ START:                  ; first instruction of program
 
 CHECK_IF_DONE_READING:
     BRA             READ_AND_WAIT_LOOP
+    * Ignore below until reading works
     * CMPA            StartAddress,EndAddress   * Check if start and end addresses are equal
     BGE             CHECK_IF_RESTART    * If equal (or greater), assume done but first check if they want to restart
     BLT             READ_AND_WAIT_LOOP  * Else continue to loop
@@ -131,7 +132,7 @@ READ_AND_WAIT_LOOP:
     ADDQ            #1,D2               * Increment counter
 
     * JSR             READ_NEXT_WORD      * Read and store next instruction
-    MOVE.L          #$0000E65C,D7
+    MOVE.L          #$0000E65C,D7       * TBD delete - just a place holder so things run before we read mem
     JSR             CALL_GET_OP         * Get opcode, which will call into the correct EA
     JSR             PRINT_NEWLINE
     BRA             READ_AND_WAIT_LOOP  * Continue the loop
