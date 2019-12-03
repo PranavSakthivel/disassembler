@@ -41,11 +41,11 @@ MSG_INVALID_INPUT   DC.B    'Error: Invalid characters were entered. Valid chara
 InvalidIOLengthMsg  DC.B    'Error: Invalid number of characters were entered. Each address must be 8 characters. Please try again.',CR,LF,0
 addrOnePrompt       DC.B    'Start address: ',0
 addrTwoPrompt       DC.B    'End address: ',0
-IS_REV              DS.W    2       *Yash
-CNTRI               DS.W    2       *Yash
-CNTRJ               DS.W    2       *Yash
-CNTR                DS.W    2       *Yash
-REVERSEBITS         DS.W    2       *Yash
+IS_REV              DS.W    2 
+CNTRI               DS.W    2 
+CNTRJ               DS.W    2 
+CNTR                DS.W    2 
+REVERSEBITS         DS.W    2 
 
 *************************
 *      Opcode Messages  *
