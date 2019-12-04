@@ -118,7 +118,7 @@ GLOBAL_RTS:
 
 START:                  ; first instruction of program
     * JSR             CLEAR_ALL_DATA_REGISTERS *TBD THIS MUST BE BELOW THE ORG TO WORK
-    JSR             RUN_ALL_TESTS       * TBD Comment out for prod
+    * JSR             RUN_ALL_TESTS       * TBD Comment out for prod
 
     JSR             CALL_GET_USER_INPUT     * Get and save user input
     BRA             CHECK_IF_DONE_READING   * Begin loop of reading and printing
@@ -139,7 +139,6 @@ READ_AND_WAIT_LOOP:
     * JSR             READ_NEXT_WORD      * Read and store next instruction
     MOVE.L          #$00003607,D7       * TBD delete - just a place holder so things run before we read mem
     JSR             CALL_GET_OP         * Get opcode, which will call into the correct EA
-    JSR             PRINT_FINAL
     JSR             PRINT_NEWLINE
     BRA             READ_AND_WAIT_LOOP  * Continue the loop
 
