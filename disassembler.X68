@@ -336,13 +336,14 @@ AFTER_ADDRESS:
         CMP.B       #1,D7
         BEQ         GET_2ND_NUMBER
         
-        CMP.L       D5,D3
-        BGT         INVALID_START_GREATER
-        BEQ         INVALID_EQUAL
+        * CMP.L       D5,D3
+        * BGT         INVALID_START_GREATER
+        * BEQ         INVALID_EQUAL
         
         BRA         GLOBAL_RTS
         
 GET_2ND_NUMBER:
+        MOVEA.L     D3,A6
         MOVE.L      D3,D5
         ADD.B       #1,D7
         LEA         addrTwoPrompt,A1    * Load intro message into A1
