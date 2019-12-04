@@ -37,10 +37,12 @@ IntroMsg            DC.B    'Please enter start and end hexadecimal addresses, o
 ContinueReadingMsg  DC.B    'Please press "enter" to read another 15 lines, any other key will terminate the program',0
 RestartMsg          DC.B    'If you would like to start over type "y", if you would like to terminate type anything else',0
 OverflowError       DC.B    'Overflow Error',CR,LF,0
-MSG_INVALID_INPUT   DC.B    'Error: Invalid characters were entered. Valid characters are 0-9 and A-F. Please try again.',CR,LF,0
+MSG_INVALID_INPUT   DC.B    'Error: Invalid characters were entered. Valid characters are 0-9 and A-F.',CR,LF,0
 InvalidIOLengthMsg  DC.B    'Error: Invalid number of characters were entered. Each address must be 8 characters. Please try again.',CR,LF,0
 addrOnePrompt       DC.B    'Start address: ',0
 addrTwoPrompt       DC.B    'End address: ',0
+MSG_INVALID_GREATER DC.B    'Start address cannot be greater than end address',0
+MSG_INVALID_EQUAL   DC.B    'Start address cannot be equal to end address',0
 IS_REV              DS.W    2 
 CNTRI               DS.W    2 
 CNTRJ               DS.W    2 
@@ -208,7 +210,7 @@ GET_USER_INPUT:     * Get user hex input
 
         JSR         GET_INPUT_AS_STRING * Get the user input as string
         CMP.W       #$0008,D1           * User input length retuned in D1.W (max 80)
-        BLT         INVALID_IO_LENGTH   * Invalid length (aka address was less than 8 chars)
+        BNE         INVALID_IO_LENGTH   * Invalid length (aka address was less than 8 chars)
         
         MOVEA.L     A1,A2
         
@@ -307,7 +309,12 @@ SAVE_HEX:
 AFTER_ADDRESS:
         CMP.B       #1,D7
         BEQ         GET_2ND_NUMBER
-        BNE         GLOBAL_RTS
+        
+        CMP.L       D5,D3
+        BGT         INVALID_START_GREATER
+        BEQ         INVALID_EQUAL
+        
+        BRA         GLOBAL_RTS
         
 GET_2ND_NUMBER:
         MOVE.L      D3,D5
@@ -340,8 +347,20 @@ PRINT_LONG:
     RTS
 
 ALL_NUMBERS_DONE:
+
+        
         SIMHALT     * debugging
         
+INVALID_EQUAL:
+        LEA         MSG_INVALID_EQUAL,A1
+        JSR         PRINT_MSG_ENDL
+        
+        BRA         GET_USER_INPUT
+INVALID_START_GREATER:
+        LEA         MSG_INVALID_GREATER,A1
+        JSR         PRINT_MSG_ENDL
+        
+        BRA         GET_USER_INPUT
 INVALID_IO:
         LEA         MSG_INVALID_INPUT,A1    * Load error message
         JSR         PRINT_MSG_ENDL      * Print error message
@@ -1790,6 +1809,8 @@ DONE:
     SIMHALT                 ; halt simulator
 
     END    START        ; last line of source
+
+
 
 
 
