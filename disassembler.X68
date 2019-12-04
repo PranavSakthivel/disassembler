@@ -59,15 +59,15 @@ MoveMsg             DC.B    'MOVE',0
 NotMsg              DC.B    'NOT',0
 NopMsg              DC.B    'NOP ',0
 MoveaMsg            DC.B    'MOVEA',0
-MovemMsg            DC.B    'MOVEM ',0
+MovemMsg            DC.B    'MOVEM',0
 MoveqMsg            DC.B    'MOVEQ ',0
 LeaMsg              DC.B    'LEA ',0
-AddMsg              DC.B    'ADD ',0
-AddaMsg             DC.B    'ADDA ',0
+AddMsg              DC.B    'ADD',0
+AddaMsg             DC.B    'ADDA',0
 AddqMsg             DC.B    'ADDQ',0
 SubMsg              DC.B    'SUB',0
-OrMsg               DC.B    'OR ',0
-AndMsg              DC.B    'AND ',0
+OrMsg               DC.B    'OR',0
+AndMsg              DC.B    'AND',0
 JsrMsg              DC.B    'JSR ',0
 RtsMsg              DC.B    'RTS ',0
 BraMsg              DC.B    'BRA ',0
@@ -139,7 +139,7 @@ READ_AND_WAIT_LOOP:
     ADDQ            #1,D2               * Increment counter
 
     * JSR             READ_NEXT_WORD      * Read and store next instruction
-    MOVE.L          #$0000E65C,D7       * TBD delete - just a place holder so things run before we read mem
+    MOVE.L          #$00003607,D7       * TBD delete - just a place holder so things run before we read mem
     JSR             CALL_GET_OP         * Get opcode, which will call into the correct EA
     JSR             PRINT_NEWLINE
     BRA             READ_AND_WAIT_LOOP  * Continue the loop
@@ -548,42 +548,49 @@ OP_NOP:
 OP_NOT:
     LEA         NotMsg,A1
     JSR         PRINT_MSG
-    JSR         PRINT_OP_SIZE
+    JSR         OP_OPMODE_EA
     RTS
 
 OP_MOVE_BYTE:
     LEA         MoveMsg,A1
     JSR         PRINT_MSG
     JSR         PRINT_BYTE
-    RTS
+    BRA         OP_MOVE_EA
 
 OP_MOVE_WORD:
     LEA         MoveMsg,A1
     JSR         PRINT_MSG
     JSR         PRINT_WORD
-    RTS
+    BRA         OP_MOVE_EA
 
 OP_MOVE_LONG:
     LEA         MoveMsg,A1
     JSR         PRINT_MSG
     JSR         PRINT_LONG
-    RTS
+    BRA         OP_MOVE_EA
 
 OP_MOVEA_WORD:
     LEA         MoveaMsg,A1
     JSR         PRINT_MSG
     JSR         PRINT_WORD
-    RTS
+    BRA         OP_MOVE_EA
 
 OP_MOVEA_LONG:
     LEA         MoveaMsg,A1
     JSR         PRINT_MSG
     JSR         PRINT_LONG
+    BRA         OP_MOVE_EA
+
+OP_MOVE_EA:
+    JSR         MOVE_SEA
+    JSR         MOVE_DEA
+    JSR         PRINT_FINAL
     RTS
 
 OP_MOVEM:
     LEA         MovemMsg,A1
     JSR         PRINT_MSG
+    JSR         MOVEM_SUB
     MOVE.W      D7,D4
     LSR.L       #6,D4
     AND.B       #%00000001,D4
@@ -595,48 +602,66 @@ OP_MOVEM:
 OP_MOVEQ:
     LEA         MoveqMsg,A1
     JSR         PRINT_MSG
+    JSR         MOVEQ_SUB
+    JSR         PRINT_FINAL
     RTS
 
 OP_LEA:
     LEA         LeaMsg,A1
     JSR         PRINT_MSG
+    JSR         LEA_SUB
+    JSR         PRINT_FINAL
     RTS
     
 OP_ADD:
     LEA         AddMsg,A1
     JSR         PRINT_MSG
+    JSR         OP_OPMODE_EA
     RTS
     
 OP_ADDA:
     LEA         AddaMsg,A1
     JSR         PRINT_MSG
+    JSR         ADDA_SUB
+    JSR         PRINT_FINAL
     RTS
 
 OP_ADDQ:
     LEA         AddqMsg,A1
     JSR         PRINT_MSG
     JSR         PRINT_OP_SIZE
+    JSR         ADDQ_SUB
+    JSR         PRINT_FINAL
     RTS
 
 OP_SUB:
     LEA         SubMsg,A1
     JSR         PRINT_MSG
-    JSR         PRINT_OP_SIZE
+    JSR         OP_OPMODE_EA
     RTS
 
 OP_OR:
     LEA         OrMsg,A1
     JSR         PRINT_MSG
+    JSR         OP_OPMODE_EA
     RTS
 
 OP_AND:
     LEA         AndMsg,A1
     JSR         PRINT_MSG
+    JSR         OP_OPMODE_EA
     RTS
+
+OP_OPMODE_EA:
+    JSR         OPMODE_SUB
+    JSR         PRINT_FINAL
+    RTS
+
 
 OP_JSR:
     LEA         JsrMsg,A1
     JSR         PRINT_MSG
+    JSR         JSR_SUB
     RTS
 
 OP_RTS:
@@ -647,57 +672,74 @@ OP_RTS:
 OP_BGT:
     LEA         BgtMsg,A1
     JSR         PRINT_MSG
+    JSR         OP_BRANCHING_EA
     RTS 
 
 OP_BEQ:
     LEA         BeqMsg,A1
     JSR         PRINT_MSG
+    JSR         OP_BRANCHING_EA
     RTS
 
 OP_BLT:
     LEA         BltMsg,A1
     JSR         PRINT_MSG
+    JSR         OP_BRANCHING_EA
     RTS
 
 OP_BRA:
     LEA         BraMsg,A1
     JSR         PRINT_MSG
+    JSR         OP_BRANCHING_EA
+    RTS
+
+OP_BRANCHING_EA:
+    * Once Yash has finished add 8 bit displacement
     RTS
 
 OP_LSL:
     LEA         LslMsg,A1
     JSR         PRINT_MSG
     JSR         PRINT_OP_SIZE
+    JSR         OP_SHIFTS_EA
     RTS
 
 OP_LSR:
     LEA         LsrMsg,A1
     JSR         PRINT_MSG
     JSR         PRINT_OP_SIZE
+    JSR         OP_SHIFTS_EA
     RTS
 
 OP_ASL:
     LEA         AslMsg,A1
     JSR         PRINT_MSG
     JSR         PRINT_OP_SIZE
+    JSR         OP_SHIFTS_EA
     RTS
 
 OP_ASR:
     LEA         AsrMsg,A1
     JSR         PRINT_MSG
     JSR         PRINT_OP_SIZE
+    JSR         OP_SHIFTS_EA
     RTS
 
 OP_ROL:
     LEA         RolMsg,A1
     JSR         PRINT_MSG
     JSR         PRINT_OP_SIZE
+    JSR         OP_SHIFTS_EA
     RTS
 
 OP_ROR:
     LEA         RorMsg,A1
     JSR         PRINT_MSG
     JSR         PRINT_OP_SIZE
+    JSR         OP_SHIFTS_EA
+    RTS
+
+OP_SHIFTS_EA:
     JSR         SHIFT_SUB
     JSR         PRINT_FINAL
     RTS
@@ -1700,100 +1742,68 @@ RUN_ALL_TESTS:
 
 CHECK_EACH_OP:
     MOVE.L      #$00000000,D7
-    JSR         INVALID_OP
     JSR         TEST_RUN_NIBBLE_TEST
     MOVE.L      #$0000A000,D7
-    JSR         INVALID_OP
     JSR         TEST_RUN_NIBBLE_TEST
     MOVE.L      #$0000B000,D7
-    JSR         INVALID_OP
     JSR         TEST_RUN_NIBBLE_TEST
     MOVE.L      #$0000F000,D7
-    JSR         INVALID_OP
     JSR         TEST_RUN_NIBBLE_TEST
     MOVE.L      #$00001000,D7
-    JSR         OP_MOVE_BYTE
     JSR         TEST_RUN_NIBBLE_TEST
     MOVE.L      #$00005842,D7
-    JSR         OP_ADDQ
     JSR         TEST_RUN_NIBBLE_TEST
     MOVE.L      #$00007211,D7
-    JSR         OP_MOVEQ
     JSR         TEST_RUN_NIBBLE_TEST
     MOVE.L      #$00008000,D7
-    JSR         OP_OR
     JSR         TEST_RUN_NIBBLE_TEST
     MOVE.L      #$00009000,D7
-    JSR         OP_SUB
     JSR         TEST_RUN_NIBBLE_TEST
     MOVE.L      #$0000C000,D7
-    JSR         OP_AND
     JSR         TEST_RUN_NIBBLE_TEST
     MOVE.L      #$00002A03,D7
-    JSR         OP_MOVE_LONG
     JSR         TEST_RUN_NIBBLE_TEST
     MOVE.L      #$00002449,D7
-    JSR         OP_MOVEA_LONG
     JSR         TEST_RUN_NIBBLE_TEST
     MOVE.L      #$00003607,D7
-    JSR         OP_MOVE_WORD
     JSR         TEST_RUN_NIBBLE_TEST
     MOVE.L      #$00003449,D7
-    JSR         OP_MOVEA_WORD
     JSR         TEST_RUN_NIBBLE_TEST
     MOVE.L      #$00004600,D7
-    JSR         OP_NOT
     JSR         TEST_RUN_NIBBLE_TEST
     MOVE.L      #$00004E75,D7
-    JSR         OP_RTS
     JSR         TEST_RUN_NIBBLE_TEST
     MOVE.L      #$00004E71,D7
-    JSR         OP_NOP
     JSR         TEST_RUN_NIBBLE_TEST
     MOVE.L      #$00004EB8,D7
-    JSR         OP_JSR
     JSR         TEST_RUN_NIBBLE_TEST
     MOVE.L      #$000048A7,D7
-    JSR         OP_MOVEM
     JSR         TEST_RUN_NIBBLE_TEST
     MOVE.L      #$000043F8,D7
-    JSR         OP_LEA
     JSR         TEST_RUN_NIBBLE_TEST
     MOVE.L      #$00006000,D7
-    JSR         OP_BRA
     JSR         TEST_RUN_NIBBLE_TEST
     MOVE.L      #$00006E00,D7
-    JSR         OP_BGT
     JSR         TEST_RUN_NIBBLE_TEST
     MOVE.L      #$00006700,D7
-    JSR         OP_BEQ
     JSR         TEST_RUN_NIBBLE_TEST
     MOVE.L      #$00006F00,D7
-    JSR         OP_BLT
     JSR         TEST_RUN_NIBBLE_TEST
     MOVE.L      #$0000D4C9,D7
-    JSR         OP_ADDA
     JSR         TEST_RUN_NIBBLE_TEST
     MOVE.L      #$0000D249,D7
-    JSR         OP_ADD
     JSR         TEST_RUN_NIBBLE_TEST
     MOVE.L      #$0000E10F,D7
-    JSR         OP_LSL
     JSR         TEST_RUN_NIBBLE_TEST
     MOVE.L      #$0000E00F,D7
-    JSR         OP_LSR
     JSR         TEST_RUN_NIBBLE_TEST
     MOVE.L      #$0000E100,D7
-    JSR         OP_ASL
     JSR         TEST_RUN_NIBBLE_TEST
     MOVE.L      #$0000E000,D7
-    JSR         OP_ASR
     JSR         TEST_RUN_NIBBLE_TEST
     MOVE.L      #$0000E75C,D7
-    JSR         OP_ROL
     JSR         TEST_RUN_NIBBLE_TEST
     MOVE.L      #$0000E65C,D7
-    JSR         OP_ROR
     JSR         TEST_RUN_NIBBLE_TEST
     RTS
 
