@@ -82,37 +82,6 @@ RolMsg              DC.B    'ROL',0
 RorMsg              DC.B    'ROR',0
 
 *************************
-*  Global subrountines  *
-*************************
-
-CLEAR_ALL_DATA_REGISTERS:
-    CLR         D0
-    CLR         D1
-    CLR         D2
-    CLR         D3
-    CLR         D4
-    CLR         D5
-    CLR         D6
-    CLR         D7
-    RTS
-
-CLEAR_ARGS_DATA_REGISTERS:
-    CLR         D6
-    CLR         D7
-    RTS
-
-CLEAR_OPEN_DATA_REGISTERS:
-    CLR         D1
-    CLR         D2
-    CLR         D3
-    CLR         D4
-    CLR         D5
-    RTS
-
-GLOBAL_RTS:
-    RTS
-
-*************************
 *    Actual Program     *
 *************************
 
@@ -138,8 +107,7 @@ READ_AND_WAIT_LOOP:
     BEQ             WAIT_FOR_USER       * If done printing required lines then we need to wait for user before we continue to read
     ADDQ            #1,D2               * Increment counter
 
-    * JSR             READ_NEXT_WORD      * Read and store next instruction
-    MOVE.L          #$00003607,D7       * TBD delete - just a place holder so things run before we read mem
+    JSR             READ_NEXT_WORD      * Read and store next instruction
     JSR             CALL_GET_OP         * Get opcode, which will call into the correct EA
     JSR             PRINT_NEWLINE
     BRA             READ_AND_WAIT_LOOP  * Continue the loop
@@ -195,6 +163,64 @@ SAVE_CONTROL_COUNTER:
 READ_CONTROL_COUNTER:
     CLR         D2
     MOVE.B      CntrlCounterAddr,D2
+    RTS
+
+* Reading Memory
+* READ_NEXT_WORD & READ_NEXT_LONG are for normal reading of the next instruction
+* READ_WORD & READ_LONG are for EA to call and have the data be put in D6 so that the instruction stays in D7
+* 
+* Requires: A6 to have a memory address of current instruction
+* Output:   D7 as instruction, 
+*           D6 as other data, 
+*           A5 as the previous instruction (aka current instruction being evaluated)
+
+READ_NEXT_WORD:
+    MOVEA.L     A6,A5
+    MOVE.W      (A6)+,D7
+    RTS
+
+READ_NEXT_LONG:
+    MOVEA.L     A6,A5
+    MOVE.L      (A6)+,D7
+    RTS
+
+READ_WORD:
+    MOVE.W      (A6)+,D6
+    RTS
+
+READ_LONG:
+    MOVE.L      (A6)+,D6
+    RTS
+
+*************************
+*  Global subrountines  *
+*************************
+
+CLEAR_ALL_DATA_REGISTERS:
+    CLR         D0
+    CLR         D1
+    CLR         D2
+    CLR         D3
+    CLR         D4
+    CLR         D5
+    CLR         D6
+    CLR         D7
+    RTS
+
+CLEAR_ARGS_DATA_REGISTERS:
+    CLR         D6
+    CLR         D7
+    RTS
+
+CLEAR_OPEN_DATA_REGISTERS:
+    CLR         D1
+    CLR         D2
+    CLR         D3
+    CLR         D4
+    CLR         D5
+    RTS
+
+GLOBAL_RTS:
     RTS
 
 *************************
@@ -310,13 +336,14 @@ AFTER_ADDRESS:
         CMP.B       #1,D7
         BEQ         GET_2ND_NUMBER
         
-        CMP.L       D5,D3
-        BGT         INVALID_START_GREATER
-        BEQ         INVALID_EQUAL
+        * CMP.L       D5,D3
+        * BGT         INVALID_START_GREATER
+        * BEQ         INVALID_EQUAL
         
         BRA         GLOBAL_RTS
         
 GET_2ND_NUMBER:
+        MOVEA.L     D3,A6
         MOVE.L      D3,D5
         ADD.B       #1,D7
         LEA         addrTwoPrompt,A1    * Load intro message into A1
