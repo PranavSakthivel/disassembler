@@ -801,7 +801,6 @@ OP_PRINT_LONG:
 *************************
 *D7 has opcode
 *D6 has Data
-
 DST_REGI:
     MOVE.W  D7, D3
     ANDI.W  #$0E00 ,D3
@@ -841,45 +840,57 @@ MOVE_SRC:                       * Addressing Register comparision
     RTS         *Change later
 WORD_SRC:
     MOVE.B  #$24, (A2)+     * $
+    JSR     READ_WORD
     JSR     DATA_SUB        * Data
-    MOVE.B  $9000, (A2)+    * D6
-    MOVE.B  $9001, (A2)+    * D6
-    MOVE.B  $9002, (A2)+    * D6
-    MOVE.B  $9003, (A2)+    * D6
+    MOVE.B  $7100, (A2)+    * D6
+    MOVE.B  $7101, (A2)+    * D6
+    MOVE.B  $7102, (A2)+    * D6
+    MOVE.B  $7103, (A2)+    * D6
     MOVE.B  #$2C, (A2)+     * ,
     MOVE.B  #$00,(A2)+      * NULL
-    MOVE.L  D6,$4000 
-    MOVE.L  D5,D6
+    *MOVE.L  D6,$4000 
+    *MOVE.L  D5,D6
     RTS
 LONG_SRC:
     MOVE.B  #$24, (A2)+     * $
+    JSR     READ_LONG       * Read D6 for parameter
     MOVE.L  D6,$4000        *temp
     MOVE.B  #16,D2
     LSR.L   D2,D6   
     JSR     DATA_SUB        * Data
-    MOVE.B  $9000, (A2)+    * D6
-    MOVE.B  $9001, (A2)+    * D6
-    MOVE.B  $9002, (A2)+    * D6
-    MOVE.B  $9003, (A2)+    * D6
+    MOVE.B  $7100, (A2)+    * D6
+    MOVE.B  $7101, (A2)+    * D6
+    MOVE.B  $7102, (A2)+    * D6
+    MOVE.B  $7103, (A2)+    * D6
     MOVE.L  $4000,D6           
     JSR     DATA_SUB        * Data
-    MOVE.B  $9000, (A2)+    * D6
-    MOVE.B  $9001, (A2)+    * D6
-    MOVE.B  $9002, (A2)+    * D6
-    MOVE.B  $9003, (A2)+    * D6
+    MOVE.B  $7100, (A2)+    * D6
+    MOVE.B  $7101, (A2)+    * D6
+    MOVE.B  $7102, (A2)+    * D6
+    MOVE.B  $7103, (A2)+    * D6
     MOVE.B  #$2C, (A2)+     * ,
     MOVE.B  #$00,(A2)+      * NULL
-    MOVE.L  D6,$4000 
-    MOVE.L  D5,D6
+    *MOVE.L  D6,$4000 
+    *MOVE.L  D5,D6
     RTS
 IMM_DATA:
     MOVE.B  #$23, (A2)+     * #
     MOVE.B  #$24, (A2)+     * $
+
+    * Read D6
+    CMPI.B  #02,  ISLONG
+    BEQ     READ_LONG_WORD    
+    JSR     READ_WORD       * Read D6 for parameter
+    BRA     CONT_POST_READ
+READ_LONG_WORD
+    JSR     READ_LONG
+CONT_POST_READ
     JSR     DATA_SUB        * Data
-    MOVE.B  $9000, (A2)+    * D6
-    MOVE.B  $9001, (A2)+    * D6
-    MOVE.B  $9002, (A2)+    * D6
-    MOVE.B  $9003, (A2)+    * D6
+
+    MOVE.B  $7100, (A2)+    * D6
+    MOVE.B  $7101, (A2)+    * D6
+    MOVE.B  $7102, (A2)+    * D6
+    MOVE.B  $7103, (A2)+    * D6
     MOVE.B  #$2C, (A2)+     * ,
     MOVE.B  #$00,(A2)+      * NULL
     MOVE.L  D6,$4000 
@@ -888,11 +899,12 @@ IMM_DATA:
 PC_D16:
     MOVE.B  #$28, (A2)+     * (
     MOVE.B  #$24, (A2)+     * $
+    JSR     READ_WORD       * Read D6 for parameter
     JSR     DATA_SUB        * Data
-    MOVE.B  $9000, (A2)+    * D6
-    MOVE.B  $9001, (A2)+    * D6
-    MOVE.B  $9002, (A2)+    * D6
-    MOVE.B  $9003, (A2)+    * D6
+    MOVE.B  $7100, (A2)+    * D6
+    MOVE.B  $7101, (A2)+    * D6
+    MOVE.B  $7102, (A2)+    * D6
+    MOVE.B  $7103, (A2)+    * D6
     MOVE.B  #$2C, (A2)+     * ,
     MOVE.B  #$50, (A2)+     * P
     MOVE.B  #$43, (A2)+     * C
@@ -905,16 +917,17 @@ PC_D16:
 PC_D8:
     MOVE.B  #$28, (A2)+     * (
     MOVE.B  #$24, (A2)+     * $
+    JSR     READ_WORD       * Read D6 for parameter
     JSR     DATA8_SUB       * Data
-    MOVE.B  $9000, (A2)+    * D6
-    MOVE.B  $9001, (A2)+    * D6
+    MOVE.B  $7100, (A2)+    * D6
+    MOVE.B  $7101, (A2)+    * D6
     MOVE.B  #$2C, (A2)+     * ,
     MOVE.B  #$50, (A2)+     * P
     MOVE.B  #$43, (A2)+     * C   
     MOVE.B  #$2C, (A2)+     * ,
     JSR     DATA8_SUB2
-    MOVE.B  $9000, (A2)+
-    MOVE.B  $9001, (A2)+
+    MOVE.B  $7100, (A2)+
+    MOVE.B  $7101, (A2)+
     MOVE.B  #$29, (A2)+     * )
     MOVE.B  #$2C, (A2)+     * ,
     MOVE.B  #$00,(A2)+      * NULL
@@ -922,6 +935,13 @@ PC_D8:
     MOVE.L  D5,D6
     RTS
  
+READ_WORD:
+    MOVEA.W (A3), D6
+    RTS
+READ_LONG:
+    MOVEA.L (A3), D6
+    RTS
+
 MOVE_SEA:
     JSR     SRC_MODE
     JSR     SRC_REGI
@@ -990,11 +1010,12 @@ AM_SEA:
 AD16_SEA:
     MOVE.B  #$28, (A2)+     * (
     MOVE.B  #$24, (A2)+     * $
+    JSR     READ_WORD       * Read D6 for parameter
     JSR     DATA_SUB        * Data
-    MOVE.B  $9000, (A2)+    * D6
-    MOVE.B  $9001, (A2)+    * D6
-    MOVE.B  $9002, (A2)+    * D6
-    MOVE.B  $9003, (A2)+    * D6
+    MOVE.B  $7100, (A2)+    * D6
+    MOVE.B  $7101, (A2)+    * D6
+    MOVE.B  $7102, (A2)+    * D6
+    MOVE.B  $7103, (A2)+    * D6
     MOVE.B  #$2C, (A2)+     * ,
     MOVE.B  #$41, (A2)+     * A
     ADDI.B  #$30, $7003
@@ -1002,28 +1023,29 @@ AD16_SEA:
     MOVE.B  #$29, (A2)+     * )
     MOVE.B  #$2C, (A2)+     * ,
     MOVE.B  #$00,(A2)+      * NULL
-    MOVE.L  D6,$4000 
-    MOVE.L  D5,D6
+    *MOVE.L  D6,$4000 
+    *MOVE.L  D5,D6
     RTS
 AD8_SEA:
     MOVE.B  #$28, (A2)+     * (
     MOVE.B  #$24, (A2)+     * $
+    JSR     READ_WORD       * Read D6 for parameter
     JSR     DATA8_SUB       * Data
-    MOVE.B  $9000, (A2)+    * D6
-    MOVE.B  $9001, (A2)+    * D6
+    MOVE.B  $7100, (A2)+    * D6
+    MOVE.B  $7101, (A2)+    * D6
     MOVE.B  #$2C, (A2)+     * ,
     MOVE.B  #$41, (A2)+     * A
     ADDI.B  #$30, $7003
     MOVE.B  $7003, (A2)+    
     MOVE.B  #$2C, (A2)+     * ,
     JSR     DATA8_SUB2
-    MOVE.B  $9000, (A2)+
-    MOVE.B  $9001, (A2)+
+    MOVE.B  $7100, (A2)+
+    MOVE.B  $7101, (A2)+
     MOVE.B  #$29, (A2)+     * )
     MOVE.B  #$2C, (A2)+     * ,
     MOVE.B  #$00,(A2)+      * NULL
-    MOVE.L  D6,$4000        *$4000 just for other stuff
-    MOVE.L  D5,D6
+    *MOVE.L  D6,$4000        *$4000 just for other stuff
+    *MOVE.L  D5,D6
     RTS    
 MOVE_DEA:
     JSR     DST_MODE
@@ -1054,11 +1076,12 @@ MOVE_DR:                        * Addressing Register comparision
     RTS         *Change later
 WORD_DEA:
     MOVE.B  #$24, (A3)+     * $
+    JSR     READ_WORD       * Read D6 for parameter
     JSR     DATA_SUB        * Data
-    MOVE.B  $9000, (A3)+    * D6
-    MOVE.B  $9001, (A3)+    * D6
-    MOVE.B  $9002, (A3)+    * D6
-    MOVE.B  $9003, (A3)+    * D6
+    MOVE.B  $7100, (A3)+    * D6
+    MOVE.B  $7101, (A3)+    * D6
+    MOVE.B  $7102, (A3)+    * D6
+    MOVE.B  $7103, (A3)+    * D6
     *MOVE.B  #$2C, (A3)+     * ,
     MOVE.B  #$00,(A3)+      * NULL
     MOVE.L  D6,$4000 
@@ -1066,24 +1089,25 @@ WORD_DEA:
     RTS
 LONG_DEA:
     MOVE.B  #$24, (A3)+     * $
+    JSR     READ_LONG       * Read D6 for parameter
     MOVE.L  D6,$4000        *temp
     MOVE.B  #16,D2
     LSR.L   D2,D6   
     JSR     DATA_SUB        * Data
-    MOVE.B  $9000, (A3)+    * D6
-    MOVE.B  $9001, (A3)+    * D6
-    MOVE.B  $9002, (A3)+    * D6
-    MOVE.B  $9003, (A3)+    * D6
+    MOVE.B  $7100, (A3)+    * D6
+    MOVE.B  $7101, (A3)+    * D6
+    MOVE.B  $7102, (A3)+    * D6
+    MOVE.B  $7103, (A3)+    * D6
     MOVE.L  $4000,D6           
     JSR     DATA_SUB        * Data
-    MOVE.B  $9000, (A3)+    * D6
-    MOVE.B  $9001, (A3)+    * D6
-    MOVE.B  $9002, (A3)+    * D6
-    MOVE.B  $9003, (A3)+    * D6
+    MOVE.B  $7100, (A3)+    * D6
+    MOVE.B  $7101, (A3)+    * D6
+    MOVE.B  $7102, (A3)+    * D6
+    MOVE.B  $7103, (A3)+    * D6
     *MOVE.B  #$2C, (A3)+     * ,
     MOVE.B  #$00,(A3)+      * NULL
-    MOVE.L  D6,$4000 
-    MOVE.L  D5,D6
+    *MOVE.L  D6,$4000 
+    *MOVE.L  D5,D6
     RTS
 
 D_EA:
@@ -1127,11 +1151,12 @@ AM_EA:
 AD16_EA:
     MOVE.B  #$28, (A3)+     * (
     MOVE.B  #$24, (A3)+     * $
+    JSR     READ_WORD       * Read D6 for parameter
     JSR     DATA_SUB        * Data
-    MOVE.B  $9000, (A3)+    * D6
-    MOVE.B  $9001, (A3)+    * D6
-    MOVE.B  $9002, (A3)+    * D6
-    MOVE.B  $9003, (A3)+    * D6
+    MOVE.B  $7100, (A3)+    * D6
+    MOVE.B  $7101, (A3)+    * D6
+    MOVE.B  $7102, (A3)+    * D6
+    MOVE.B  $7103, (A3)+    * D6
     MOVE.B  #$2C, (A3)+     * ,
     MOVE.B  #$41, (A3)+     * A
     ADDI.B  #$30, $7000
@@ -1142,17 +1167,18 @@ AD16_EA:
 AD8_EA:
     MOVE.B  #$28, (A3)+     * (
     MOVE.B  #$24, (A3)+     * $
+    JSR     READ_WORD       * Read D6 for parameter
     JSR     DATA8_SUB       * Data
-    MOVE.B  $9000, (A3)+    * D6
-    MOVE.B  $9001, (A3)+    * D6
+    MOVE.B  $7100, (A3)+    * D6
+    MOVE.B  $7101, (A3)+    * D6
     MOVE.B  #$2C, (A3)+     * ,
     MOVE.B  #$41, (A3)+     * A
     ADDI.B  #$30, $7000
     MOVE.B  $7000, (A3)+    
     MOVE.B  #$2C, (A3)+     * ,
     JSR     DATA8_SUB2
-    MOVE.B  $9000, (A3)+
-    MOVE.B  $9001, (A3)+
+    MOVE.B  $7100, (A3)+
+    MOVE.B  $7101, (A3)+
     MOVE.B  #$29, (A3)+     * )
     MOVE.B  #$00,(A3)+      * NULL
     RTS 
@@ -1167,7 +1193,7 @@ DATA_SUB:
         ADD.B   #$40,D0
         BRA     NEXT1
 NUM1    ADD.B   #$30,D0
-NEXT1   MOVE.B  D0,$9000
+NEXT1   MOVE.B  D0,$7100
         MOVE.W  D6, D0
         LSR.W   #8, D0
         ANDI.W  #$000F, D0
@@ -1177,7 +1203,7 @@ NEXT1   MOVE.B  D0,$9000
         ADD.B   #$40,D0
         BRA     NEXT2
 NUM2    ADD.B   #$30,D0
-NEXT2   MOVE.B  D0,$9001
+NEXT2   MOVE.B  D0,$7101
         MOVE.W  D6, D0
         LSR.W   #4, D0
         ANDI.W  #$000F, D0
@@ -1187,7 +1213,7 @@ NEXT2   MOVE.B  D0,$9001
         ADD.B   #$40,D0
         BRA     NEXT3
 NUM3    ADD.B   #$30,D0
-NEXT3   MOVE.B  D0,$9002
+NEXT3   MOVE.B  D0,$7102
         MOVE.W  D6, D0
         ANDI.W  #$000F, D0
         CMP.B   #9,D0
@@ -1196,7 +1222,7 @@ NEXT3   MOVE.B  D0,$9002
         ADD.B   #$40,D0
         BRA     NEXT4
 NUM4    ADD.B   #$30,D0
-NEXT4   MOVE.B  D0,$9003
+NEXT4   MOVE.B  D0,$7103
         RTS
         
 
@@ -1210,7 +1236,7 @@ DATA8_SUB:
         ADD.B   #$40,D0
         BRA     NEXT5
 NUM5    ADD.B   #$30,D0
-NEXT5   MOVE.B  D0,$9000
+NEXT5   MOVE.B  D0,$7100
         MOVE.W  D6, D0
         ANDI.W  #$000F, D0
         CMP.B   #9,D0
@@ -1219,7 +1245,7 @@ NEXT5   MOVE.B  D0,$9000
         ADD.B   #$40,D0
         BRA     NEXT6
 NUM6    ADD.B   #$30,D0
-NEXT6   MOVE.B  D0,$9001
+NEXT6   MOVE.B  D0,$7101
         RTS
 DATA8_SUB2:
         MOVE.W  D6, D0
@@ -1228,12 +1254,12 @@ DATA8_SUB2:
         ANDI.W  #$000F, D0
         CMP.B   #8,D0
         BLT     NUM7
-        MOVE.B  #$41,$9000
+        MOVE.B  #$41,$7100
         BRA     NEXT7
-NUM7    MOVE.B  #$44,$9000
+NUM7    MOVE.B  #$44,$7100
 NEXT7   ANDI.W  #$0007,D0
         ADD.B   #$30,D0
-        MOVE.B  D0,$9001
+        MOVE.B  D0,$7101
         RTS
 
 OPMODE_SUB:
@@ -1351,8 +1377,7 @@ SHFT_RET
     MOVE.B  $7003, (A3)+           * 0-7
     MOVE.B  #$00,(A3)+             * NULL
     RTS
-DISP_8_BIT:
-    RTS            
+        
 MOVEQ_SUB:                          *MOVEQ Q Q Q
     JSR     DST_REGI
     MOVEA.L #$7500,A2
@@ -1382,8 +1407,8 @@ ONES
     MOVE.B  #$46, (A2)+            * F
     MOVE.B  #$46, (A2)+            * F
 ZEROS
-    MOVE.B  $9000,(A2)+            * The hex value in DATA
-    MOVE.B  $9001,(A2)+            *
+    MOVE.B  $7100,(A2)+            * The hex value in DATA
+    MOVE.B  $7101,(A2)+            *
     MOVE.B  #$2C, (A2)+            * ,
     MOVE.B  #$00,(A2)+             * NULL
     MOVE.B  #$44, (A3)+            * D
@@ -1441,6 +1466,7 @@ ADDQ_SUB:
 MOVEM_SUB:
     JSR     SRC_MODE
     JSR     SRC_REGI
+    JSR     READ_WORD       * Read D6 for parameter
     MOVE.W  #$0, IS_REV
     MOVEA.L #$7500,A2
     MOVEA.L #$8000,A3
@@ -1755,7 +1781,42 @@ INVALID_EA:
     MOVE.B  #$00,(A2)+             * NULL
     MOVE.B  #$00,(A3)+             * NULL
     RTS
-
+*************************
+*  8-Bit Displacement+   *
+*************************
+DISP_8_BITS:
+    MOVE.W  D7, D3          *Move the Opcode to D3
+    ANDI.W  #$00FF ,D3      *Takes the last 8 bits of opcode
+    MOVE.B  D3,$7000        *Storing it in 7000 for safe keeping
+    MOVE.L  A5,D5           
+    BTST    #7,D3
+    BNE     NDISP_8_BIT     *If it is a negative number it take two's complement 
+    ADD.L   D3,D5           *Add 8-bits to PC
+    BRA     DISP_8_RET
+NDISP_8_BIT                 *Two's complement instructions
+    SUB.B   #$1,D3          *subtract 1
+    NOT.B   D3              *flip the bits
+    SUB.L   D3,D5           *subtract 8-bits from PC
+    
+DISP_8_RET
+    MOVEA.L #$7500,A2       
+    MOVE.L  D5,D6
+    MOVE.B  #$24, (A2)+     * $
+    MOVE.B  #16,D2          *
+    LSR.L   D2,D6           * convert the higher word to ascii hex
+    JSR     DATA_SUB        * Data
+    MOVE.B  $7100, (A2)+    * D6
+    MOVE.B  $7101, (A2)+    * D6
+    MOVE.B  $7102, (A2)+    * D6
+    MOVE.B  $7103, (A2)+    * D6
+    MOVE.L  D5,D6           
+    JSR     DATA_SUB        * Data
+    MOVE.B  $7100, (A2)+    * D6
+    MOVE.B  $7101, (A2)+    * D6
+    MOVE.B  $7102, (A2)+    * D6
+    MOVE.B  $7103, (A2)+    * D6
+    MOVE.B  #$00,(A2)+      * NULL    
+    RTS    
 
 *************************
 *        Tests          *
