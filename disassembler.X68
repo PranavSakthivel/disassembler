@@ -530,7 +530,6 @@ OP_NOP:
 OP_NOT:
     LEA         NotMsg,A1
     JSR         PRINT_MSG
-    JSR         PRINT_OP_SIZE
     JSR         OP_OPMODE_EA
     RTS
 
@@ -620,7 +619,6 @@ OP_ADDQ:
 OP_SUB:
     LEA         SubMsg,A1
     JSR         PRINT_MSG
-    JSR         PRINT_OP_SIZE
     JSR         OP_OPMODE_EA
     RTS
 
@@ -678,7 +676,7 @@ OP_BRA:
     RTS
 
 OP_BRANCHING_EA:
-    * Once Yash has finished 8 bit displacement
+    * Once Yash has finished add 8 bit displacement
     RTS
 
 OP_LSL:
