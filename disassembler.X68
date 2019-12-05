@@ -1721,7 +1721,7 @@ LOOP_BIT
     
 CONT_LOOP 
     ADDI.W #$1, D0
-    CMPI.W #$F, D0
+    CMPI.W #$10, D0
     BNE LOOP_BIT
     MOVE.W REVERSEBITS, D6
     
