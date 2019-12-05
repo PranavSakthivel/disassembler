@@ -908,6 +908,7 @@ OP_JSR:
     LEA         JsrMsg,A1
     JSR         PRINT_MSG
     JSR         JSR_SUB
+    JSR         PRINT_FINAL
     RTS
 
 OP_RTS:
