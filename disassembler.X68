@@ -443,6 +443,11 @@ INVALID_IO_LENGTH:
     JSR         PRINT_MSG_ENDL              * Print error message
     
     BRA         GET_USER_INPUT              * Restart IO
+
+PRINT_CURRENT_MACHINE_CODE:
+    MOVE.W      D7,D5
+    JSR         HEX_TO_ASCII_WORD
+    RTS
     
 *************************
 *  Print Hex Methods    *
@@ -472,46 +477,46 @@ HEX_TO_ASCII_LONG:
 
 HEX_TO_ASCII:
         LEA         HEX_JUMP_TABLE,A2
-        MOVE.W      $3000,D3
+        MOVE.W      $3000,D6
         
         * First nibble
-        LSR         #8,D3
-        LSR         #4,D3
+        LSR         #8,D6
+        LSR         #4,D6
         
-        MULU        #6,D3
-        JSR         0(A2,D3)
+        MULU        #6,D6
+        JSR         0(A2,D6)
         
-        MOVE.W      $3000,D3
+        MOVE.W      $3000,D6
         
         * Second nibble
-        LSL         #4,D3
-        LSR         #4,D3
-        LSR         #8,D3
+        LSL         #4,D6
+        LSR         #4,D6
+        LSR         #8,D6
         
-        MULU        #6,D3
-        JSR         0(A2,D3)
+        MULU        #6,D6
+        JSR         0(A2,D6)
         
-        MOVE.W      $3000,D3
+        MOVE.W      $3000,D6
         
         * Third nibble
-        LSL         #8,D3
-        LSR         #8,D3
-        LSR         #4,D3
+        LSL         #8,D6
+        LSR         #8,D6
+        LSR         #4,D6
         
-        MULU        #6,D3
-        JSR         0(A2,D3)
+        MULU        #6,D6
+        JSR         0(A2,D6)
         
-        MOVE.W      $3000,D3
+        MOVE.W      $3000,D6
         
         * Fourth nibble
-        LSL         #8,D3
-        LSL         #4,D3
-        LSR         #8,D3
-        LSR         #4,D3
+        LSL         #8,D6
+        LSL         #4,D6
+        LSR         #8,D6
+        LSR         #4,D6
 
-        MULU        #6,D3
-        JSR         0(A2,D3)
-        CLR.W       D3
+        MULU        #6,D6
+        JSR         0(A2,D6)
+        CLR.W       D6
         
         RTS
 
@@ -673,6 +678,7 @@ GET_OP_CODE:
 INVALID_OP:
     LEA         MSG_INVALID_OP,A1
     JSR         PRINT_MSG
+    JSR         PRINT_CURRENT_MACHINE_CODE
     RTS
 
 OP_NIBBLE_2:    * MOVE.L, MOVEA.L
@@ -1076,7 +1082,7 @@ OP_SHIFTS_EA:
     RTS
 
 PRINT_OP_SIZE:  * Check the size of the instruction
-    MOVE.B      #$01, ISLONG            * Require for D6
+    MOVE.B      #$01, $4701            * Require for D6
     MOVE.W      D7,D4
     LSR.L       #6,D4
     AND.B       #%00000011,D4
@@ -1092,15 +1098,17 @@ PRINT_OP_SIZE:  * Check the size of the instruction
 * Reason for these is so we can still rts after printing. Also easier to add in any other code here if needed
 OP_PRINT_BYTE:
     JSR         PRINT_BYTE
+    MOVE.B      #$01, $4701            * Require for D6
     RTS
 
 OP_PRINT_WORD:
     JSR         PRINT_WORD
+    MOVE.B      #$01, $4701            * Require for D6
     RTS
 
 OP_PRINT_LONG:
     JSR         PRINT_LONG
-    MOVE.B      #$02, ISLONG            * Require for D6
+    MOVE.B      #$02, $4701            * Require for D6
     RTS
 
 *************************
@@ -1185,12 +1193,30 @@ IMM_DATA:
     MOVE.B  #$24, (A2)+     * $
 
     * Read D6
-    CMPI.B  #02,  ISLONG
+    CMPI.B  #02, $4701
     BEQ     READ_LONG_WORD    
     JSR     READ_WORD       * Read D6 for parameter
     BRA     CONT_POST_READ
 READ_LONG_WORD
     JSR     READ_LONG
+    JSR     READ_LONG
+    MOVE.L  D6,$4000        *temp
+    MOVE.B  #16,D2
+    LSR.L   D2,D6   
+    JSR     DATA_SUB        * Data
+    MOVE.B  $7100, (A2)+    * D6
+    MOVE.B  $7101, (A2)+    * D6
+    MOVE.B  $7102, (A2)+    * D6
+    MOVE.B  $7103, (A2)+    * D6
+    MOVE.L  $4000,D6           
+    JSR     DATA_SUB        * Data
+    MOVE.B  $7100, (A2)+    * D6
+    MOVE.B  $7101, (A2)+    * D6
+    MOVE.B  $7102, (A2)+    * D6
+    MOVE.B  $7103, (A2)+    * D6
+    MOVE.B  #$2C, (A2)+     * ,
+    MOVE.B  #$00,(A2)+      * NULL
+    BRA     IMM_DATA_OUT
 CONT_POST_READ
     JSR     DATA_SUB        * Data
 
@@ -1200,6 +1226,7 @@ CONT_POST_READ
     MOVE.B  $7103, (A2)+    * D6
     MOVE.B  #$2C, (A2)+     * ,
     MOVE.B  #$00,(A2)+      * NULL
+IMM_DATA_OUT
     MOVE.L  D6,$4000 
     MOVE.L  D5,D6
     RTS
