@@ -48,7 +48,7 @@ CNTRI               DS.W    2
 CNTRJ               DS.W    2 
 CNTR                DS.W    2 
 REVERSEBITS         DS.W    2 
-
+ISLONG              DS.W    2
 *****************************
 * Hex Jump Table Messages:
 *****************************
@@ -265,7 +265,7 @@ GET_USER_INPUT:     * Get user hex input
         
         MOVE.B      #1,D7
         
-        MOVEA.L     #$2000,A3           * Starting address for storing Hex number at A3
+        MOVEA.L     #$3500,A3           * Starting address for storing Hex number at A3
 
         MOVE.B      #9,D2               * Number of digits to be read, subtracted each iteration
         
@@ -339,7 +339,7 @@ CONFIRM_NUMBER:     * Confirm what number it exactly is
         
 DONE_WITH_HEX:  
         MOVE.B      #0,D2               * For loop constant
-        MOVEA.L     #$2000,A3           * Clear start address
+        MOVEA.L     #$3500,A3           * Clear start address
         
 SAVE_HEX:
         ADD.B       #1,D2               * Increment loop
@@ -375,7 +375,7 @@ GET_2ND_NUMBER:
         JSR         GET_INPUT_AS_STRING  * Get user input as string
         
         MOVEA.L     A1,A2               * Move A1 into A2 so value does not get overwritten
-        MOVEA.L     #$2000,A3           * Starting address for storing Hex number at A3
+        MOVEA.L     #$3500,A3           * Starting address for storing Hex number at A3
 
         MOVE.B      #9,D2               * Number of digits to be read, subtracted each iteration
 
@@ -828,15 +828,22 @@ OP_MOVE_EA:
 OP_MOVEM:
     LEA         MovemMsg,A1
     JSR         PRINT_MSG
-    * JSR         MOVEM_SUB
+    JSR         MOVEM_SUB
     MOVE.W      D7,D4
     LSR.L       #6,D4
-    AND.B       #%00000001,D4       * Need to check size
-    CMP.B       #$00,D4             * 0000 = word
-    BEQ         OP_PRINT_WORD
-    CMP.B       #$01,D4             * 0001 = long
-    BEQ         OP_PRINT_LONG
-    BRA         INVALID_OP          * Should never reach this point but IF we do then thats a big invalid
+    AND.B       #%00000001,D4
+    CMP.B       #$00,D4
+    BEQ         OP_MOVEM_WORD
+    CMP.B       #$01,D4
+    BEQ         OP_MOVEM_LONG
+OP_MOVEM_WORD
+    JSR         OP_PRINT_WORD
+    BRA         OP_MOVEM_RET
+OP_MOVEM_LONG
+    JSR         OP_PRINT_LONG
+OP_MOVEM_RET
+    JSR         PRINT_FINAL
+    RTS
 
 OP_MOVEQ:
     LEA         MoveqMsg,A1
@@ -901,6 +908,7 @@ OP_JSR:
     LEA         JsrMsg,A1
     JSR         PRINT_MSG
     JSR         JSR_SUB
+    JSR         PRINT_FINAL
     RTS
 
 OP_RTS:
@@ -984,6 +992,7 @@ OP_SHIFTS_EA:
     RTS
 
 PRINT_OP_SIZE:  * Check the size of the instruction
+    MOVE.B      #$01, ISLONG            * Require for D6
     MOVE.W      D7,D4
     LSR.L       #6,D4
     AND.B       #%00000011,D4
@@ -1006,6 +1015,7 @@ OP_PRINT_WORD:
 
 OP_PRINT_LONG:
     JSR         PRINT_LONG
+    MOVE.B      #$02, ISLONG            * Require for D6
     RTS
 
 *************************
@@ -1090,7 +1100,7 @@ IMM_DATA:
     MOVE.B  #$24, (A2)+     * $
 
     * Read D6
-    * CMPI.B  #02,  ISLONG
+    CMPI.B  #02,  ISLONG
     BEQ     READ_LONG_WORD    
     JSR     READ_WORD       * Read D6 for parameter
     BRA     CONT_POST_READ
@@ -1594,7 +1604,7 @@ MOVEQ_SUB:                          *MOVEQ Q Q Q
     MOVE.L  D0,$4000
     JSR     DATA8_SUB
     MOVE.B  #$23, (A2)+            * #
-    MOVE.B  #$23, (A2)+            * $
+    MOVE.B  #$24, (A2)+            * $
     CMPI.B  #1,$4000
     BEQ     ONES 
     MOVE.B  #$30, (A2)+            * 0
@@ -1671,21 +1681,24 @@ ADDQ_SUB:
 MOVEM_SUB:
     JSR     SRC_MODE
     JSR     SRC_REGI
-    JSR     READ_WORD       * Read D6 for parameter
-    MOVE.W  #$0, IS_REV
+    JSR     READ_WORD              * Read D6 for parameter
     MOVEA.L #$7500,A2
     MOVEA.L #$8000,A3
     CMPI.B  #0,$7002
     BEQ     INVALID_EA
     CMPI.B  #1,$7002
     BEQ     INVALID_EA
+*    CMPI.B  #3,$7002
+*    BEQ     INVALID_EA
     CMPI.B  #7,$7002
     BEQ     MOVEMIN
 
 MOVEMBACK    
+    *BTST    #10, D7
+    *BEQ     CONT_REV
     CMPI.B  #4, $7002
     BEQ CONT1
-    MOVE.W #$1, IS_REV 
+CONT_REV
     
     MOVE.W #0, D0
     MOVE.W #0, CNTRI
@@ -1708,74 +1721,12 @@ LOOP_BIT
     
 CONT_LOOP 
     ADDI.W #$1, D0
-    CMPI.W #$F, D0
+    CMPI.W #$10, D0
     BNE LOOP_BIT
     MOVE.W REVERSEBITS, D6
     
 CONT1    
-    MOVE.W  D6,$4004                *Start of Dn-Dn/An-An
-    MOVE.B  $4005,D0
-    MOVE.B  #$FF,$4500
-    CMPI.B  #0,D0
-    BEQ     LOOPMOUT2
-    MOVE.B  #0,$4500                *Start
-    MOVE.B  #7,$4501                *End
-LOOPM1
-    MOVE.B  D0,$4502
-    ANDI.B  #$01,$4502
-    CMPI.B  #1,$4502
-    BEQ     LOOPMOUT
-    SUBI.B  #1,$4501
-    CMPI.B  #0,$4501
-    BEQ     LOOPMOUT
-    LSR.B   #1,D0
-    BRA     LOOPM1
-LOOPMOUT
-    MOVE.B  $4005,D0
-LOOPM2    
-    MOVE.B  D0,$4502
-    ANDI.B  #$80,$4502
-    CMPI.B  #$80,$4502
-    BEQ     LOOPMOUT2
-    ADDI.B  #1,$4500
-    CMPI.B  #7,$4500
-    BGE     LOOPMOUT2
-    LSL.B   #1,D0
-    BRA     LOOPM2
-LOOPMOUT2
-    MOVE.W  D6,$4004                *Start of Dn-Dn/An-An
-    MOVE.B  $4004,D0
-    MOVE.B  #$FF,$4503
-    CMPI.B  #0,D0
-    BEQ     LOOPMOUT4
-    MOVE.B  #0,$4503                *Start
-    MOVE.B  #7,$4504                *End
-    
-LOOPM4
-    MOVE.B  D0,$4502
-    ANDI.B  #$01,$4502
-    CMPI.B  #1,$4502
-    BEQ     LOOPMOUT3
-    SUBI.B  #1,$4504
-    CMPI.B  #0,$4504
-    BEQ     LOOPMOUT3
-    LSR.B   #1,D0
-    BRA     LOOPM4
-LOOPMOUT3
-    MOVE.B  $4005,D0
-LOOPM5   
-    MOVE.B  D0,$4502
-    ANDI.B  #$80,$4502
-    CMPI.B  #$80,$4502
-    BEQ     LOOPMOUT4
-    ADDI.B  #1,$4503
-    CMPI.B  #7,$4503
-    BGE     LOOPMOUT4
-    LSL.B   #1,D0
-    BRA     LOOPM5
-LOOPMOUT4
-    
-    MOVE.W  D7, D0
+  MOVE.W  D7, D0
     ANDI.W  #$0400, D0 
     LSR.W   #8,D0                  *Shifting 8 bits
     LSR.W   #2,D0                  *Shifting 2 bits
@@ -1788,98 +1739,112 @@ LOOPMOUT4
 
 MOVE_MEM_TO_REG
     JSR     MOVE_SEA2
-    CMPI.B  #$FF,$4500
+    MOVE.B  D6,D0
+    CMPI.B  #0,D0
     BEQ     MOVEM_AN
-    MOVE.B  $4501,D1
-    CMP.B   $4500,D1
-    BEQ     MOVEM_SD
-    
+    MOVE.B  #0,D1
+MOVEM_LOOP0    
+    LSR.B   D1,D0
+    ANDI.B  #01,D0
+    CMPI.B  #0,D0
+    BEQ     MOVEM_LOOP1            
+        
     MOVE.B  #$41, (A3)+            * A
-    ADDI.B  #$30, $4500            * start in ascii
-    MOVE.B  $4500, (A3)+           * the start
-    MOVE.B  #$2D, (A3)+            * -
-    MOVE.B  #$41, (A3)+            * A
-    ADDI.B  #$30, $4501            * end in ascii
-    MOVE.B  $4501, (A3)+           * end
-    BRA     MOVEM_SDOUT
-MOVEM_SD
-    MOVE.B  #$41, (A3)+            * A
-    ADDI.B  #$30, $4500            * start in ascii
-    MOVE.B  $4500, (A3)+           * start    
-MOVEM_SDOUT
-    CMPI.B  #$FF,$4503
-    BEQ     MOVEM_AN2
+    *MOVE.B  D1, (A3)              * the start
+    MOVE.B  #7,   (A3)
+    SUB.B   D1, (A3)
+    ADDI.B  #$30, (A3)+               * start in ascii
     MOVE.B  #$2F, (A3)+            * /
+MOVEM_LOOP1
+    ADDI.B  #1,D1
+    MOVE.B  D6,D0
+    CMPI.B  #8,D1
+    BNE     MOVEM_LOOP0
     
 MOVEM_AN   
-    MOVE.B  $4504,D1 
-    CMP.B   $4503,D1
-    BEQ     MOVEM_SA
+    MOVE.W  D6,$4500
+    MOVE.B  $4500,D0
+    CMPI.B  #0,D0
+    BEQ     MOVEM_AN2_REMOVE
+    MOVE.B  #0,D1
+MOVEM_LOOP3    
+    LSR.B   D1,D0
+    ANDI.B  #01,D0
+    CMPI.B  #0,D0
+    BEQ     MOVEM_LOOP4            
+        
     MOVE.B  #$44, (A3)+            * D
-    ADDI.B  #$30, $4503            * start in ascii
-    MOVE.B  $4503, (A3)+           * the start
-    MOVE.B  #$2D, (A3)+            * -
-    MOVE.B  #$44, (A3)+            * D
-    ADDI.B  #$30, $4504            * end in ascii
-    MOVE.B  $4504, (A3)+           * end
-    BRA     MOVEM_SAOUT
-MOVEM_SA
-    MOVE.B  #$44, (A3)+            * D
-    ADDI.B  #$30, $4503            * D - start in ascii
-    MOVE.B  $4503, (A3)+           * Start
-MOVEM_SAOUT
+    *MOVE.B  D1, (A3)
+    MOVE.B  #7,   (A3)
+    SUB.B   D1, (A3)
+    ADDI.B  #$30, (A3)+               * start in ascii
+    MOVE.B  #$2F, (A3)+            * /
+MOVEM_LOOP4
+    ADDI.B  #1,D1
+    MOVE.B  $4500,D0
+    CMPI.B  #8,D1
+    BNE     MOVEM_LOOP3
+MOVEM_AN2_REMOVE
+    SUBA.W  #1,A3
+    
 MOVEM_AN2
+      
     BRA     MOVEM_OUT
     
 MOVE_REG_TO_MEM 
-    CMPI.B  #$FF,$4503
+    MOVE.B  D6,D0
+    CMPI.B  #0,D0
     BEQ     MOVEM_AN3
-    MOVE.B  $4504,D1
-    CMP.B   $4503,D1
-    BEQ     MOVEM_SA3
-    MOVE.B  #$44, (A2)+            * D
-    ADDI.B  #$30, $4503            * start in ascii
-    MOVE.B  $4503, (A2)+           * the start
-    MOVE.B  #$2D, (A2)+            * -
-    MOVE.B  #$44, (A2)+            * D
-    ADDI.B  #$30, $4504            * end in ascii
-    MOVE.B  $4504, (A2)+           * end
-    BRA     MOVEM_SAOUT3
-MOVEM_SA3
-    MOVE.B  #$44, (A2)+            * D
-    ADDI.B  #$30, $4503            * D - start in ascii
-    MOVE.B  $4503, (A2)+           * Start
-MOVEM_SAOUT3
-    CMPI.B  #$FF,$4500
-    BEQ     MOVEM_AN4
+    MOVE.B  #0,D1
+MOVEM_LOOP5    
+    LSR.B   D1,D0
+    ANDI.B  #01,D0
+    CMPI.B  #0,D0
+    BEQ     MOVEM_LOOP6            
+        
+    MOVE.B  #$41, (A2)+            * A
+    *MOVE.B  D1,   (A2)
+    MOVE.B  #7,   (A2)
+    SUB.B   D1, (A2)
+    ADDI.B  #$30, (A2)+               * start in ascii
     MOVE.B  #$2F, (A2)+            * /
-MOVEM_AN3
-    MOVE.B  $4501,D1
-    CMP.B   $4500,D1
-    BEQ     MOVEM_SD4
+MOVEM_LOOP6
+    ADDI.B  #1,D1
+    MOVE.B  D6,D0
+    CMPI.B  #8,D1
+    BNE     MOVEM_LOOP5
+MOVEM_AN3   
+    MOVE.W  D6,$4500
+    MOVE.B  $4500,D0
+    CMPI.B  #0,D0
+    BEQ     MOVEM_AN4_REMOVE
+    MOVE.B  #0,D1
+MOVEM_LOOP7    
+    LSR.B   D1,D0
+    ANDI.B  #01,D0
+    CMPI.B  #0,D0
+    BEQ     MOVEM_LOOP8            
+        
     
-    MOVE.B  #$41, (A2)+            * A
-    ADDI.B  #$30, $4500            * start in ascii
-    MOVE.B  $4500, (A2)+           * the start
-    MOVE.B  #$2D, (A2)+            * -
-    MOVE.B  #$41, (A2)+            * A
-    ADDI.B  #$30, $4501            * end in ascii
-    MOVE.B  $4501, (A2)+           * end
-    BRA     MOVEM_SDOUT4
-MOVEM_SD4
-    MOVE.B  #$41, (A2)+            * A
-    ADDI.B  #$30, $4500            * start in ascii
-    MOVE.B  $4500, (A2)+           * start
+    MOVE.B  #$44, (A2)+            * D
+    MOVE.B  #7,   (A2)
+    SUB.B   D1, (A2)
+    ADDI.B  #$30, (A2)+               * start in ascii
+    MOVE.B  #$2F, (A2)+            * /
+MOVEM_LOOP8
+    ADDI.B  #1,D1
+    MOVE.B  $4500,D0
+    CMPI.B  #8,D1
+    BNE     MOVEM_LOOP7
+MOVEM_AN4_REMOVE
+    SUBA.W  #1,A2
 MOVEM_AN4
-    
-
-MOVEM_SDOUT4
-    MOVE.B  #$2C,(A2)+             * ,
-    MOVE.B  #$00,(A2)+             * NULL
+    MOVE.B  #$2C, (A2)+            * ,  
     MOVE.B  $7003,$7000
-    MOVE.B  $7002,$7001    
+    MOVE.B  $7002,$7001  
     JSR     MOVE_DEA2
     BRA     MOVEM_OUT
+
 MOVEMIN
     CMPI.B  #2,7003
     BGE     INVALID_EA
@@ -2121,7 +2086,3 @@ DONE:
 
 
 
-*~Font name~Courier New~
-*~Font size~10~
-*~Tab type~1~
-*~Tab size~4~
