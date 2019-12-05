@@ -73,7 +73,7 @@ RtsMsg              DC.B    'RTS ',0
 BraMsg              DC.B    'BRA ',0
 BgtMsg              DC.B    'BGT ',0
 BeqMsg              DC.B    'BEQ ',0
-BltMsg              DC.B    'BLT ',0
+BleMsg              DC.B    'BLE ',0
 LslMsg              DC.B    'LSL',0
 LsrMsg              DC.B    'LSR',0
 AslMsg              DC.B    'ASL',0
@@ -514,8 +514,8 @@ OP_NIBBLE_6:    * BGT, BEQ, BLE
     BEQ         OP_BGT
     CMP.W       #$67,D4                 * 67 = BEQ
     BEQ         OP_BEQ
-    CMP.W       #$6F,D4                 * 6F = BLT
-    BEQ         OP_BLT
+    CMP.W       #$6F,D4                 * 6F = BLE
+    BEQ         OP_BLE
     BRA         INVALID_OP              * If doesn't match the bytes from above then it's invalid
 
 OP_CHECK_MOVEQ:
@@ -536,6 +536,19 @@ OP_NIBBLE_D:    * ADD, ADDA
 
 OP_NIBBLE_E:    * LSL, LSR, ASL, ASR, ROL, ROR
     MOVE.W      D7,D4                   * To check between if it's LS, AS or RO we need to check the 3rd and 4th bits
+    AND.W       #%1111111011000000,D4   * Must check if its an address shift or its a register shift
+    
+    * Begin by check if its an address shift
+    CMP.W       #%1110000011000000,D4   * Exact ARx binary
+    BEQ         OP_ASL_OR_ASR
+    CMP.W       #%1110001011000000,D4   * Exact LSx binary
+    BEQ         OP_LSL_OR_LSR
+    CMP.W       #%1110011011000000,D4   * Exact ROx binary
+    BEQ         OP_ROL_OR_ROR
+
+    * If not an address shift then check its if a register shift
+    CLR         D4                      * Clear just to ensure there is nothing left over
+    MOVE.W      D7,D4
     LSR.L       #3,D4                   * Move the bits we need to the right most places
     AND.W       #%0000000000000011,D4   * Get rid of all other bits
                                         * Note to compare Left or Right use the 8th bit of D2
@@ -617,14 +630,15 @@ OP_MOVE_EA:
 OP_MOVEM:
     LEA         MovemMsg,A1
     JSR         PRINT_MSG
-    JSR         MOVEM_SUB
+    * JSR         MOVEM_SUB
     MOVE.W      D7,D4
     LSR.L       #6,D4
-    AND.B       #%00000001,D4
-    CMP.B       #$00,D4
+    AND.B       #%00000001,D4       * Need to check size
+    CMP.B       #$00,D4             * 0000 = word
     BEQ         OP_PRINT_WORD
-    CMP.B       #$01,D4
+    CMP.B       #$01,D4             * 0001 = long
     BEQ         OP_PRINT_LONG
+    BRA         INVALID_OP          * Should never reach this point but IF we do then thats a big invalid
 
 OP_MOVEQ:
     LEA         MoveqMsg,A1
@@ -708,8 +722,8 @@ OP_BEQ:
     JSR         OP_BRANCHING_EA
     RTS
 
-OP_BLT:
-    LEA         BltMsg,A1
+OP_BLE:
+    LEA         BleMsg,A1
     JSR         PRINT_MSG
     JSR         OP_BRANCHING_EA
     RTS
@@ -878,7 +892,7 @@ IMM_DATA:
     MOVE.B  #$24, (A2)+     * $
 
     * Read D6
-    CMPI.B  #02,  ISLONG
+    * CMPI.B  #02,  ISLONG
     BEQ     READ_LONG_WORD    
     JSR     READ_WORD       * Read D6 for parameter
     BRA     CONT_POST_READ
@@ -933,13 +947,6 @@ PC_D8:
     MOVE.B  #$00,(A2)+      * NULL
     MOVE.L  D6,$4000 
     MOVE.L  D5,D6
-    RTS
- 
-READ_WORD:
-    MOVEA.W (A3), D6
-    RTS
-READ_LONG:
-    MOVEA.L (A3), D6
     RTS
 
 MOVE_SEA:
