@@ -49,9 +49,32 @@ CNTRJ               DS.W    2
 CNTR                DS.W    2 
 REVERSEBITS         DS.W    2 
 
+*****************************
+* Hex Jump Table Messages:
+*****************************
+
+HexMsg      DC.B    '$',0
+Zero        DC.B    '0',0
+One         DC.B    '1',0
+Two         DC.B    '2',0
+Three       DC.B    '3',0
+Four        DC.B    '4',0
+Five        DC.B    '5',0
+Six         DC.B    '6',0
+Seven       DC.B    '7',0    
+Eight       DC.B    '8',0
+Nine        DC.B    '9',0
+A           DC.B    'A',0
+B           DC.B    'B',0
+C           DC.B    'C',0               
+D           DC.B    'D',0
+E           DC.B    'E',0
+F           DC.B    'F',0
+
 *************************
 *      Opcode Messages  *
 *************************
+
 ByteMsg             DC.B    '.B ',0
 WordMsg             DC.B    '.W ',0
 LongMsg             DC.B    '.L ',0
@@ -399,6 +422,181 @@ INVALID_IO_LENGTH:
     JSR         PRINT_MSG_ENDL              * Print error message
     
     BRA         GET_USER_INPUT              * Restart IO
+    
+*************************
+*  Print Hex Methods    *
+*  Put Hex value in D5  *
+*************************
+
+HEX_TO_ASCII_WORD:
+
+        
+        LSL.L       #8,D5
+        LSL.L       #8,D5
+        MOVE.L      D5,$3000
+        JSR         HEX_TO_ASCII
+        
+        RTS
+HEX_TO_ASCII_LONG:
+        MOVE.L      D5,$3000
+        JSR         HEX_TO_ASCII
+        
+        LSL.L       #8,D5
+        LSL.L       #8,D5
+        
+        MOVE.L      D5,$3000
+        JSR         HEX_TO_ASCII
+        
+        RTS
+
+HEX_TO_ASCII:
+        LEA         HEX_JUMP_TABLE,A2
+        MOVE.W      $3000,D3
+        
+        * First nibble
+        LSR         #8,D3
+        LSR         #4,D3
+        
+        MULU        #6,D3
+        JSR         0(A2,D3)
+        
+        MOVE.W      $3000,D3
+        
+        * Second nibble
+        LSL         #4,D3
+        LSR         #4,D3
+        LSR         #8,D3
+        
+        MULU        #6,D3
+        JSR         0(A2,D3)
+        
+        MOVE.W      $3000,D3
+        
+        * Third nibble
+        LSL         #8,D3
+        LSR         #8,D3
+        LSR         #4,D3
+        
+        MULU        #6,D3
+        JSR         0(A2,D3)
+        
+        MOVE.W      $3000,D3
+        
+        * Fourth nibble
+        LSL         #8,D3
+        LSL         #4,D3
+        LSR         #8,D3
+        LSR         #4,D3
+
+        MULU        #6,D3
+        JSR         0(A2,D3)
+        CLR.W       D3
+        
+        RTS
+
+
+***************************    
+* HEX JUMP TABLE STUFF:
+***************************
+HEX_JUMP_TABLE
+        JMP         PRINT_0
+        JMP         PRINT_1
+        JMP         PRINT_2
+        JMP         PRINT_3
+        JMP         PRINT_4
+        JMP         PRINT_5
+        JMP         PRINT_6
+        JMP         PRINT_7
+        JMP         PRINT_8
+        JMP         PRINT_9
+        JMP         PRINT_A
+        JMP         PRINT_B
+        JMP         PRINT_C
+        JMP         PRINT_D
+        JMP         PRINT_E
+        JMP         PRINT_F
+        
+PRINT_0:
+        LEA         Zero,A1
+        JSR         PRINT_MSG
+        
+        RTS
+PRINT_1:
+        LEA         One,A1
+        JSR         PRINT_MSG
+        
+        RTS
+PRINT_2:
+        LEA         Two,A1
+        JSR         PRINT_MSG
+        
+        RTS
+PRINT_3:
+        LEA         Three,A1
+        JSR         PRINT_MSG
+        
+        RTS
+PRINT_4:
+        LEA         Four,A1
+        JSR         PRINT_MSG
+        
+        RTS
+PRINT_5:
+        LEA         Five,A1
+        JSR         PRINT_MSG
+        
+        RTS
+PRINT_6:
+        LEA         Six,A1
+        JSR         PRINT_MSG
+        
+        RTS
+PRINT_7:
+        LEA         Seven,A1
+        JSR         PRINT_MSG
+        
+        RTS
+PRINT_8:
+        LEA         Eight,A1
+        JSR         PRINT_MSG
+        
+        RTS
+PRINT_9:
+        LEA         Nine,A1
+        JSR         PRINT_MSG
+        
+        RTS
+PRINT_A:
+        LEA         A,A1
+        JSR         PRINT_MSG
+        
+        RTS
+PRINT_B:
+        LEA         B,A1
+        JSR         PRINT_MSG
+        
+        RTS
+PRINT_C:
+        LEA         C,A1
+        JSR         PRINT_MSG
+        
+        RTS
+PRINT_D:
+        LEA         D,A1
+        JSR         PRINT_MSG
+        
+        RTS
+PRINT_E:
+        LEA         E,A1
+        JSR         PRINT_MSG
+        
+        RTS
+PRINT_F:
+        LEA         F,A1
+        JSR         PRINT_MSG
+        
+        RTS
+
 
 *************************
 *  Op Codes branching   *
@@ -1914,6 +2112,7 @@ DONE:
     SIMHALT                 ; halt simulator
 
     END    START        ; last line of source
+
 
 
 
