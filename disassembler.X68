@@ -227,7 +227,7 @@ READ_LONG:
     MOVE.L      (A6)+,D6
     RTS
 
-PRINT_CURRENT_ADDRESS:
+PRINT_CURRENT_ADDRESS:              * Print the current address that's being disassembled
     MOVE.L      A5,D5
     JSR         HEX_TO_ASCII_LONG
     JSR         PRINT_TAB
@@ -237,7 +237,7 @@ PRINT_CURRENT_ADDRESS:
 *  Global subrountines  *
 *************************
 
-CLEAR_ALL_DATA_REGISTERS:
+CLEAR_ALL_DATA_REGISTERS:       * Clear every data register
     CLR         D0
     CLR         D1
     CLR         D2
@@ -248,12 +248,12 @@ CLEAR_ALL_DATA_REGISTERS:
     CLR         D7
     RTS
 
-CLEAR_ARGS_DATA_REGISTERS:
+CLEAR_ARGS_DATA_REGISTERS:      * Clear the arg data registers
     CLR         D6
     CLR         D7
     RTS
 
-CLEAR_OPEN_DATA_REGISTERS:
+CLEAR_OPEN_DATA_REGISTERS:      * Clear open data registers
     CLR         D1
     CLR         D2
     CLR         D3
@@ -261,194 +261,181 @@ CLEAR_OPEN_DATA_REGISTERS:
     CLR         D5
     RTS
 
-GLOBAL_RTS:
+GLOBAL_RTS:                     * Allows for Branching to an RTS (in cases of of compare)
     RTS
 
 *************************
 *         I/O           *
 *************************
-    
+
 GET_USER_INPUT:     * Get user hex input
-        LEA         IntroMsg,A1         * Load intro message into A1
-        JSR         PRINT_MSG_ENDL      * Print intro message
+    LEA         IntroMsg,A1         * Load intro message into A1
+    JSR         PRINT_MSG_ENDL      * Print intro message
 
-        LEA         addrOnePrompt,A1    * Load intro message into A1
-        JSR         PRINT_MSG           * Print prompt
+    LEA         addrOnePrompt,A1    * Load intro message into A1
+    JSR         PRINT_MSG           * Print prompt
 
-        LEA         StartAddress,A1
-        JSR         GET_INPUT_AS_STRING * Get the user input as string
-        CMP.W       #$0008,D1           * User input length retuned in D1.W (max 80)
-        BNE         INVALID_IO_LENGTH   * Invalid length (aka address was less than 8 chars)
-        
-        MOVEA.L     A1,A2
-        
-        MOVE.B      #1,D7
-        
-        MOVEA.L     #$3500,A3           * Starting address for storing Hex number at A3
-
-        MOVE.B      #9,D2               * Number of digits to be read, subtracted each iteration
-        
-        BRA         ASCII_TO_HEX 
-          
+    LEA         StartAddress,A1
+    JSR         GET_INPUT_AS_STRING * Get the user input as string
+    CMP.W       #$0008,D1           * User input length retuned in D1.W (max 80)
+    BNE         INVALID_IO_LENGTH   * Invalid length (aka address was less than 8 chars)
     
-PRINT_MSG_ENDL:     * Print message with CR LF
-        MOVE.B      #13,D0
-        TRAP        #15                 * Task 13: Display the NULL terminated string at (A1) with CR, LF.
+    MOVEA.L     A1,A2
+    MOVE.B      #1,D7
+    MOVEA.L     #$3500,A3           * Starting address for storing Hex number at A3
+    MOVE.B      #9,D2               * Number of digits to be read, subtracted each iteration
+    BRA         ASCII_TO_HEX 
         
-        RTS
+
+PRINT_MSG_ENDL:     * Print message with CR LF
+    MOVE.B      #13,D0
+    TRAP        #15                 * Task 13: Display the NULL terminated string at (A1) with CR, LF.
+    RTS
 
 PRINT_MSG:          * Print message
-        MOVE.B      #14,D0              * Loads task 14 (Print message without CRLF) into D0
-        TRAP        #15                 * Execute Task 14: Display the NULL terminated string at (A1) without CR, LF.
-        
-        RTS
-       
+    MOVE.B      #14,D0              * Loads task 14 (Print message without CRLF) into D0
+    TRAP        #15                 * Execute Task 14: Display the NULL terminated string at (A1) without CR, LF.
+    RTS
+    
 GET_INPUT_AS_STRING:                    * Get input from user as string
-        MOVE.B      #2,D0               * Load code 2 into D0 to get string
-        TRAP        #15                 * Execute code 2
-        
-        RTS
+    MOVE.B      #2,D0               * Load code 2 into D0 to get string
+    TRAP        #15                 * Execute code 2
+    RTS
 
 PRINT_NEWLINE:
-        LEA         EndlMsg,A1          * Prints a new line
-        JSR         PRINT_MSG_ENDL
-
-        RTS
+    LEA         EndlMsg,A1          * Prints a new line
+    JSR         PRINT_MSG_ENDL
+    RTS
 
 PRINT_SPACE:
-        LEA         SpaceMsg,A1          * Prints a space
-        JSR         PRINT_MSG
-        RTS
+    LEA         SpaceMsg,A1         * Prints a space
+    JSR         PRINT_MSG
+    RTS
 
-PRINT_TAB:
-        JSR         PRINT_SPACE
-        JSR         PRINT_SPACE
-        JSR         PRINT_SPACE
-        JSR         PRINT_SPACE
-        RTS
-        
+PRINT_TAB:                          * Prints 4 spaces, not the must useful but it cleans up code
+    JSR         PRINT_SPACE
+    JSR         PRINT_SPACE
+    JSR         PRINT_SPACE
+    JSR         PRINT_SPACE
+    RTS
+    
 PRINT_NUM:          * Print number
-        MOVE.B      #3,D0               * Move code 3 to D0
-        TRAP        #15                 * Execute code 3: Display signed number in D1.L in decimal in smallest field
-        
-        RTS
-        
+    MOVE.B      #3,D0               * Move code 3 to D0
+    TRAP        #15                 * Execute code 3: Display signed number in D1.L in decimal in smallest field
+    
+    RTS
+    
 ASCII_TO_HEX:       * Convert ASCII values to hex
-        MOVE.B      (A2)+,D3            * Get value of each byte in string one by one
-        SUB         #1,D2               * Decrement D2 by 1 for next loop
-        
-        CMP.B       #0,D2               * Check if the looping is over
-        BEQ         DONE_WITH_HEX       * Exit to next instruction
-        
-        CMP.B       #$3A,D3             * Check if the character is a number
-        BLT         CHECK_NUMBER        * Verify number
-        
-        CMP.B       #$40,D3             * Check if character is a letter
-        BGT         CHECK_LETTER        * Branch to verify letter
-        
+    MOVE.B      (A2)+,D3            * Get value of each byte in string one by one
+    SUB         #1,D2               * Decrement D2 by 1 for next loop
+    
+    CMP.B       #0,D2               * Check if the looping is over
+    BEQ         DONE_WITH_HEX       * Exit to next instruction
+    
+    CMP.B       #$3A,D3             * Check if the character is a number
+    BLT         CHECK_NUMBER        * Verify number
+    
+    CMP.B       #$40,D3             * Check if character is a letter
+    BGT         CHECK_LETTER        * Branch to verify letter
+    
 CHECK_LETTER:       * Check if in valid letter range
-        CMP.B       #$47,D3             * Check if letter is valid
-        BLT         CONFIRM_LETTER      * Find exact letter
-        BGE         INVALID_IO
-        
+    CMP.B       #$47,D3             * Check if letter is valid
+    BLT         CONFIRM_LETTER      * Find exact letter
+    BGE         INVALID_IO
+    
 CONFIRM_LETTER:     * Find exact letter
-        SUB.B       #$37,D3             * Subtract 37 to convert ASCII to hex
-        MOVE.B      D3,(A3)+            * Add the hex digit to the address register, increment address register
-       
-        BRA         ASCII_TO_HEX        * Continue converting to hex
-        
+    SUB.B       #$37,D3             * Subtract 37 to convert ASCII to hex
+    MOVE.B      D3,(A3)+            * Add the hex digit to the address register, increment address register
+    
+    BRA         ASCII_TO_HEX        * Continue converting to hex
+    
 CHECK_NUMBER:       * Check if in valid number range
-        CMP.B       #$2F,D3             * Check if valid number
-        BGT         CONFIRM_NUMBER      * Branch to get value of exact number
-        BLE         INVALID_IO          * Branch to error case
+    CMP.B       #$2F,D3             * Check if valid number
+    BGT         CONFIRM_NUMBER      * Branch to get value of exact number
+    BLE         INVALID_IO          * Branch to error case
 
 CONFIRM_NUMBER:     * Confirm what number it exactly is
-        SUB.B       #$30,D3             * Subtract $30 from D3 to convert to hex
-        MOVE.B      D3,(A3)+            * Move to A3 and post increment
-                
-        BRA         ASCII_TO_HEX
-        
+    SUB.B       #$30,D3             * Subtract $30 from D3 to convert to hex
+    MOVE.B      D3,(A3)+            * Move to A3 and post increment
+            
+    BRA         ASCII_TO_HEX
+    
 DONE_WITH_HEX:  
-        MOVE.B      #0,D2               * For loop constant
-        MOVEA.L     #$3500,A3           * Clear start address
-        
+    MOVE.B      #0,D2               * For loop constant
+    MOVEA.L     #$3500,A3           * Clear start address
+    
 SAVE_HEX:
-        ADD.B       #1,D2               * Increment loop
-        BEQ         AFTER_ADDRESS       * Move to method after hex
-        
-        MOVE.B      (A3)+,D4            * Move hex digit to D4
-        ADD.B       D4,D3               * Add digit to D3
-        
-        CMP.B       #8,D2               * Check if loop is over
-        BEQ         AFTER_ADDRESS       * Move to method after hex
-        
-        LSL.L       #4,D3               * Move 4 bits 
-        
-        BRA         SAVE_HEX            * Loop until full number is saved
-        
+    ADD.B       #1,D2               * Increment loop
+    BEQ         AFTER_ADDRESS       * Move to method after hex
+    
+    MOVE.B      (A3)+,D4            * Move hex digit to D4
+    ADD.B       D4,D3               * Add digit to D3
+    
+    CMP.B       #8,D2               * Check if loop is over
+    BEQ         AFTER_ADDRESS       * Move to method after hex
+    
+    LSL.L       #4,D3               * Move 4 bits 
+    
+    BRA         SAVE_HEX            * Loop until full number is saved
+    
 AFTER_ADDRESS:
-        CMP.B       #1,D7
-        BEQ         GET_2ND_NUMBER
-        
-        MOVEA.L     D3,A4                   * Save end address in an address register
-        CMPA.L      A4,A6                   * Check if our start address is greater than our end address
-        BGE         INVALID_START_GREATER    
-        
-        BRA         GLOBAL_RTS
-        
+    CMP.B       #1,D7
+    BEQ         GET_2ND_NUMBER
+    
+    MOVEA.L     D3,A4                   * Save end address in an address register
+    CMPA.L      A4,A6                   * Check if our start address is greater than our end address
+    BGE         INVALID_START_GREATER    
+    
+    BRA         GLOBAL_RTS
+    
 GET_2ND_NUMBER:
-        MOVEA.L     D3,A6
-        MOVE.L      D3,D5
-        ADD.B       #1,D7
-        LEA         addrTwoPrompt,A1    * Load intro message into A1
-        JSR         PRINT_MSG           * Print prompt
-        
-        LEA         EndAddress,A1       * Want input stored here
-        JSR         GET_INPUT_AS_STRING  * Get user input as string
-        
-        MOVEA.L     A1,A2               * Move A1 into A2 so value does not get overwritten
-        LEA         a1BaseAddr,A1       * In order to not overwrite end address save this
-        MOVEA.L     #$3500,A3           * Starting address for storing Hex number at A3
+    MOVEA.L     D3,A6
+    MOVE.L      D3,D5
+    ADD.B       #1,D7
+    LEA         addrTwoPrompt,A1    * Load intro message into A1
+    JSR         PRINT_MSG           * Print prompt
+    
+    LEA         EndAddress,A1       * Want input stored here
+    JSR         GET_INPUT_AS_STRING  * Get user input as string
+    
+    MOVEA.L     A1,A2               * Move A1 into A2 so value does not get overwritten
+    LEA         a1BaseAddr,A1       * In order to not overwrite end address save this
+    MOVEA.L     #$3500,A3           * Starting address for storing Hex number at A3
 
-        MOVE.B      #9,D2               * Number of digits to be read, subtracted each iteration
+    MOVE.B      #9,D2               * Number of digits to be read, subtracted each iteration
 
-        BRA         ASCII_TO_HEX        * Branch to converting number to hex
+    BRA         ASCII_TO_HEX        * Branch to converting number to hex
 
-PRINT_BYTE:
+PRINT_BYTE:                         * Print ".B "
     LEA         ByteMsg,A1
     JSR         PRINT_MSG
     RTS
 
-PRINT_WORD:
+PRINT_WORD:                         * Print ".W "
     LEA         WordMsg,A1
     JSR         PRINT_MSG
     RTS
-
-PRINT_LONG:
+    
+PRINT_LONG:                         * Print ".L "
     LEA         LongMsg,A1
     JSR         PRINT_MSG
     RTS
-
-ALL_NUMBERS_DONE:
-
-        
-        SIMHALT     * debugging
-        
-INVALID_EQUAL:
-        LEA         MSG_INVALID_EQUAL,A1
-        JSR         PRINT_MSG_ENDL
-        
-        BRA         GET_USER_INPUT
-INVALID_START_GREATER:
-        LEA         MSG_INVALID_GREATER,A1
-        JSR         PRINT_MSG_ENDL
-        
-        BRA         GET_USER_INPUT
+    
+INVALID_EQUAL:                              * Print that the start and end addr can't be equal
+    LEA         MSG_INVALID_EQUAL,A1
+    JSR         PRINT_MSG_ENDL
+    
+    BRA         GET_USER_INPUT
+INVALID_START_GREATER:                      * Print that the start addr cant be greater than the end addr
+    LEA         MSG_INVALID_GREATER,A1
+    JSR         PRINT_MSG_ENDL
+    
+    BRA         GET_USER_INPUT
 INVALID_IO:
-        LEA         MSG_INVALID_INPUT,A1    * Load error message
-        JSR         PRINT_MSG_ENDL      * Print error message
-        
-        BRA         GET_USER_INPUT               * Restart program
+    LEA         MSG_INVALID_INPUT,A1        * Load error message
+    JSR         PRINT_MSG_ENDL              * Print error message
+    
+    BRA         GET_USER_INPUT              * Restart get user input
 
 INVALID_IO_LENGTH:
     LEA         InvalidIOLengthMsg,A1       * Load error message
@@ -456,8 +443,8 @@ INVALID_IO_LENGTH:
     
     BRA         GET_USER_INPUT              * Restart IO
 
-PRINT_CURRENT_MACHINE_CODE:
-    MOVE.W      D7,D5
+PRINT_CURRENT_MACHINE_CODE:                 * Print current machine code being reviewed
+    MOVE.W      D7,D5                       * Mostly used for debug purposes
     JSR         HEX_TO_ASCII_WORD
     RTS
     
@@ -466,175 +453,154 @@ PRINT_CURRENT_MACHINE_CODE:
 *  Put Hex value in D5  *
 *************************
 
-HEX_TO_ASCII_WORD:
+HEX_TO_ASCII_WORD:                      * Print ascii from a word in D5
+    LSL.L       #8,D5
+    LSL.L       #8,D5
+    MOVE.L      D5,$3000
+    JSR         HEX_TO_ASCII
+    RTS
 
-        
-        LSL.L       #8,D5
-        LSL.L       #8,D5
-        MOVE.L      D5,$3000
-        JSR         HEX_TO_ASCII
-        
-        RTS
-HEX_TO_ASCII_LONG:
-        MOVE.L      D5,$3000
-        JSR         HEX_TO_ASCII
-        
-        LSL.L       #8,D5
-        LSL.L       #8,D5
-        
-        MOVE.L      D5,$3000
-        JSR         HEX_TO_ASCII
-        
-        RTS
+HEX_TO_ASCII_LONG:                      * Print ascii from a long in D5
+    MOVE.L      D5,$3000
+    JSR         HEX_TO_ASCII
+    
+    LSL.L       #8,D5
+    LSL.L       #8,D5
+    
+    MOVE.L      D5,$3000                * This is the second call to get the second half
+    JSR         HEX_TO_ASCII
+    RTS
 
-HEX_TO_ASCII:
-        LEA         HEX_JUMP_TABLE,A2
-        MOVE.W      $3000,D6
-        
-        * First nibble
-        LSR         #8,D6
-        LSR         #4,D6
-        
-        MULU        #6,D6
-        JSR         0(A2,D6)
-        
-        MOVE.W      $3000,D6
-        
-        * Second nibble
-        LSL         #4,D6
-        LSR         #4,D6
-        LSR         #8,D6
-        
-        MULU        #6,D6
-        JSR         0(A2,D6)
-        
-        MOVE.W      $3000,D6
-        
-        * Third nibble
-        LSL         #8,D6
-        LSR         #8,D6
-        LSR         #4,D6
-        
-        MULU        #6,D6
-        JSR         0(A2,D6)
-        
-        MOVE.W      $3000,D6
-        
-        * Fourth nibble
-        LSL         #8,D6
-        LSL         #4,D6
-        LSR         #8,D6
-        LSR         #4,D6
+HEX_TO_ASCII:                           * Separate nibbles, then change them ascii
+    LEA         HEX_JUMP_TABLE,A2
+    MOVE.W      $3000,D6
+    
+    * First nibble
+    LSR         #8,D6
+    LSR         #4,D6
+    
+    MULU        #6,D6
+    JSR         0(A2,D6)
+    
+    MOVE.W      $3000,D6
+    
+    * Second nibble
+    LSL         #4,D6
+    LSR         #4,D6
+    LSR         #8,D6
+    
+    MULU        #6,D6
+    JSR         0(A2,D6)
+    
+    MOVE.W      $3000,D6
+    
+    * Third nibble
+    LSL         #8,D6
+    LSR         #8,D6
+    LSR         #4,D6
+    
+    MULU        #6,D6
+    JSR         0(A2,D6)
+    
+    MOVE.W      $3000,D6
+    
+    * Fourth nibble
+    LSL         #8,D6
+    LSL         #4,D6
+    LSR         #8,D6
+    LSR         #4,D6
 
-        MULU        #6,D6
-        JSR         0(A2,D6)
-        CLR.W       D6
-        
-        RTS
-
+    MULU        #6,D6
+    JSR         0(A2,D6)
+    CLR.W       D6
+    
+    RTS
 
 ***************************    
 * HEX JUMP TABLE STUFF:
 ***************************
 HEX_JUMP_TABLE
-        JMP         PRINT_0
-        JMP         PRINT_1
-        JMP         PRINT_2
-        JMP         PRINT_3
-        JMP         PRINT_4
-        JMP         PRINT_5
-        JMP         PRINT_6
-        JMP         PRINT_7
-        JMP         PRINT_8
-        JMP         PRINT_9
-        JMP         PRINT_A
-        JMP         PRINT_B
-        JMP         PRINT_C
-        JMP         PRINT_D
-        JMP         PRINT_E
-        JMP         PRINT_F
-        
-PRINT_0:
-        LEA         Zero,A1
-        JSR         PRINT_MSG
-        
-        RTS
-PRINT_1:
-        LEA         One,A1
-        JSR         PRINT_MSG
-        
-        RTS
-PRINT_2:
-        LEA         Two,A1
-        JSR         PRINT_MSG
-        
-        RTS
-PRINT_3:
-        LEA         Three,A1
-        JSR         PRINT_MSG
-        
-        RTS
-PRINT_4:
-        LEA         Four,A1
-        JSR         PRINT_MSG
-        
-        RTS
-PRINT_5:
-        LEA         Five,A1
-        JSR         PRINT_MSG
-        
-        RTS
-PRINT_6:
-        LEA         Six,A1
-        JSR         PRINT_MSG
-        
-        RTS
-PRINT_7:
-        LEA         Seven,A1
-        JSR         PRINT_MSG
-        
-        RTS
-PRINT_8:
-        LEA         Eight,A1
-        JSR         PRINT_MSG
-        
-        RTS
-PRINT_9:
-        LEA         Nine,A1
-        JSR         PRINT_MSG
-        
-        RTS
-PRINT_A:
-        LEA         A,A1
-        JSR         PRINT_MSG
-        
-        RTS
-PRINT_B:
-        LEA         B,A1
-        JSR         PRINT_MSG
-        
-        RTS
-PRINT_C:
-        LEA         C,A1
-        JSR         PRINT_MSG
-        
-        RTS
-PRINT_D:
-        LEA         D,A1
-        JSR         PRINT_MSG
-        
-        RTS
-PRINT_E:
-        LEA         E,A1
-        JSR         PRINT_MSG
-        
-        RTS
-PRINT_F:
-        LEA         F,A1
-        JSR         PRINT_MSG
-        
-        RTS
-
+    JMP         PRINT_0
+    JMP         PRINT_1
+    JMP         PRINT_2
+    JMP         PRINT_3
+    JMP         PRINT_4
+    JMP         PRINT_5
+    JMP         PRINT_6
+    JMP         PRINT_7
+    JMP         PRINT_8
+    JMP         PRINT_9
+    JMP         PRINT_A
+    JMP         PRINT_B
+    JMP         PRINT_C
+    JMP         PRINT_D
+    JMP         PRINT_E
+    JMP         PRINT_F
+    
+PRINT_0:                            * Print 0
+    LEA         Zero,A1
+    JSR         PRINT_MSG
+    RTS
+PRINT_1:                            * Print 1
+    LEA         One,A1
+    JSR         PRINT_MSG
+    RTS
+PRINT_2:                            * Print 2
+    LEA         Two,A1
+    JSR         PRINT_MSG
+    RTS
+PRINT_3:                            * Print 3
+    LEA         Three,A1
+    JSR         PRINT_MSG
+    RTS
+PRINT_4:                            * Print 4
+    LEA         Four,A1
+    JSR         PRINT_MSG
+    RTS
+PRINT_5:                            * Print 5
+    LEA         Five,A1
+    JSR         PRINT_MSG
+    RTS
+PRINT_6:                            * Print 6
+    LEA         Six,A1
+    JSR         PRINT_MSG
+    RTS
+PRINT_7:                            * Print 7
+    LEA         Seven,A1
+    JSR         PRINT_MSG
+    RTS
+PRINT_8:                            * Print 8
+    LEA         Eight,A1
+    JSR         PRINT_MSG
+    RTS
+PRINT_9:                            * Print 9
+    LEA         Nine,A1
+    JSR         PRINT_MSG
+    RTS
+PRINT_A:                            * Print A
+    LEA         A,A1
+    JSR         PRINT_MSG
+    RTS
+PRINT_B:                            * Print B
+    LEA         B,A1
+    JSR         PRINT_MSG
+    RTS
+PRINT_C:                            * Print C
+    LEA         C,A1
+    JSR         PRINT_MSG
+    RTS
+PRINT_D:                            * Print D
+    LEA         D,A1
+    JSR         PRINT_MSG
+    RTS
+PRINT_E:                            * Print E
+    LEA         E,A1
+    JSR         PRINT_MSG
+    RTS
+PRINT_F:                            * Print F
+    LEA         F,A1
+    JSR         PRINT_MSG
+    RTS
 
 *************************
 *  Op Codes branching   *
