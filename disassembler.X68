@@ -31,6 +31,7 @@ StartAddress        EQU     $5000
 EndAddress          EQU     $5008   * difference of 4 or 8?
 CntrlCounterAddr    EQU     $5012
 EndlMsg             DC.B    '',CR,LF,0
+SpaceMsg            DC.B    ' ',0
 MSG_INVALID_OP      DC.B    'Invalid op code: ',0
 MSG_INVALID_EA      DC.B    'Invalid ea code: ',CR,LF,0
 IntroMsg            DC.B    'Please enter start and end hexadecimal addresses, one after the other: ',0
@@ -200,11 +201,13 @@ READ_CONTROL_COUNTER:
 READ_NEXT_WORD:
     MOVEA.L     A6,A5
     MOVE.W      (A6)+,D7
+    JSR         PRINT_CURRENT_ADDRESS
     RTS
 
 READ_NEXT_LONG:
     MOVEA.L     A6,A5
     MOVE.L      (A6)+,D7
+    JSR         PRINT_CURRENT_ADDRESS
     RTS
 
 READ_WORD:
@@ -213,6 +216,12 @@ READ_WORD:
 
 READ_LONG:
     MOVE.L      (A6)+,D6
+    RTS
+
+PRINT_CURRENT_ADDRESS:
+    MOVE.L      A5,D5
+    JSR         HEX_TO_ASCII_LONG
+    JSR         PRINT_TAB
     RTS
 
 *************************
@@ -294,6 +303,18 @@ PRINT_NEWLINE:
         LEA         EndlMsg,A1          * Prints a new line
         JSR         PRINT_MSG_ENDL
 
+        RTS
+
+PRINT_SPACE:
+        LEA         SpaceMsg,A1          * Prints a space
+        JSR         PRINT_MSG
+        RTS
+
+PRINT_TAB:
+        JSR         PRINT_SPACE
+        JSR         PRINT_SPACE
+        JSR         PRINT_SPACE
+        JSR         PRINT_SPACE
         RTS
         
 PRINT_NUM:          * Print number
@@ -422,6 +443,11 @@ INVALID_IO_LENGTH:
     JSR         PRINT_MSG_ENDL              * Print error message
     
     BRA         GET_USER_INPUT              * Restart IO
+
+PRINT_CURRENT_MACHINE_CODE:
+    MOVE.W      D7,D5
+    JSR         HEX_TO_ASCII_WORD
+    RTS
     
 *************************
 *  Print Hex Methods    *
@@ -451,46 +477,46 @@ HEX_TO_ASCII_LONG:
 
 HEX_TO_ASCII:
         LEA         HEX_JUMP_TABLE,A2
-        MOVE.W      $3000,D3
+        MOVE.W      $3000,D6
         
         * First nibble
-        LSR         #8,D3
-        LSR         #4,D3
+        LSR         #8,D6
+        LSR         #4,D6
         
-        MULU        #6,D3
-        JSR         0(A2,D3)
+        MULU        #6,D6
+        JSR         0(A2,D6)
         
-        MOVE.W      $3000,D3
+        MOVE.W      $3000,D6
         
         * Second nibble
-        LSL         #4,D3
-        LSR         #4,D3
-        LSR         #8,D3
+        LSL         #4,D6
+        LSR         #4,D6
+        LSR         #8,D6
         
-        MULU        #6,D3
-        JSR         0(A2,D3)
+        MULU        #6,D6
+        JSR         0(A2,D6)
         
-        MOVE.W      $3000,D3
+        MOVE.W      $3000,D6
         
         * Third nibble
-        LSL         #8,D3
-        LSR         #8,D3
-        LSR         #4,D3
+        LSL         #8,D6
+        LSR         #8,D6
+        LSR         #4,D6
         
-        MULU        #6,D3
-        JSR         0(A2,D3)
+        MULU        #6,D6
+        JSR         0(A2,D6)
         
-        MOVE.W      $3000,D3
+        MOVE.W      $3000,D6
         
         * Fourth nibble
-        LSL         #8,D3
-        LSL         #4,D3
-        LSR         #8,D3
-        LSR         #4,D3
+        LSL         #8,D6
+        LSL         #4,D6
+        LSR         #8,D6
+        LSR         #4,D6
 
-        MULU        #6,D3
-        JSR         0(A2,D3)
-        CLR.W       D3
+        MULU        #6,D6
+        JSR         0(A2,D6)
+        CLR.W       D6
         
         RTS
 
@@ -652,6 +678,7 @@ GET_OP_CODE:
 INVALID_OP:
     LEA         MSG_INVALID_OP,A1
     JSR         PRINT_MSG
+    JSR         PRINT_CURRENT_MACHINE_CODE
     RTS
 
 OP_NIBBLE_2:    * MOVE.L, MOVEA.L
@@ -738,11 +765,11 @@ OP_NIBBLE_E:    * LSL, LSR, ASL, ASR, ROL, ROR
     
     * Begin by check if its an address shift
     CMP.W       #%1110000011000000,D4   * Exact ARx binary
-    BEQ         OP_ASL_OR_ASR
+    BEQ         OP_ASL_OR_ASR_NO_SIZE   * Going to no size version because the address shift is always a word
     CMP.W       #%1110001011000000,D4   * Exact LSx binary
-    BEQ         OP_LSL_OR_LSR
+    BEQ         OP_LSL_OR_LSR_NO_SIZE   * Going to no size version because the address shift is always a word
     CMP.W       #%1110011011000000,D4   * Exact ROx binary
-    BEQ         OP_ROL_OR_ROR
+    BEQ         OP_ROL_OR_ROR_NO_SIZE   * Going to no size version because the address shift is always a word
 
     * If not an address shift then check its if a register shift
     CLR         D4                      * Clear just to ensure there is nothing left over
@@ -773,6 +800,22 @@ OP_ROL_OR_ROR:
     BTST        #8,D7
     BNE         OP_ROL                  * If bit = 1 then left
     BEQ         OP_ROR                  * If bit = 0 then right
+
+
+OP_LSL_OR_LSR_NO_SIZE:
+    BTST        #8,D7
+    BNE         OP_LSL_NO_SIZE                  * If bit = 1 then left
+    BEQ         OP_LSR_NO_SIZE                  * If bit = 0 then right
+
+OP_ASL_OR_ASR_NO_SIZE:
+    BTST        #8,D7
+    BNE         OP_ASL_NO_SIZE                  * If bit = 1 then left
+    BEQ         OP_ASR_NO_SIZE                  * If bit = 0 then right
+
+OP_ROL_OR_ROR_NO_SIZE:
+    BTST        #8,D7
+    BNE         OP_ROL_NO_SIZE                  * If bit = 1 then left
+    BEQ         OP_ROR_NO_SIZE                  * If bit = 0 then right
 
 *************************
 *   Opcode Printing     *
@@ -941,8 +984,13 @@ OP_BRA:
     RTS
 
 OP_BRANCHING_EA:
-    * Once Yash has finished add 8 bit displacement
+    JSR         DISP_8_BITS
+    JSR         PRINT_FINAL
     RTS
+
+* OP shifting (ASx LSx ROx)
+* There are two subroutines for each op code because if affects an address than it doesn't need a size
+*    Instead of printing a size we will print a space
 
 OP_LSL:
     LEA         LslMsg,A1
@@ -986,13 +1034,55 @@ OP_ROR:
     JSR         OP_SHIFTS_EA
     RTS
 
+OP_LSL_NO_SIZE:
+    LEA         LslMsg,A1
+    JSR         PRINT_MSG
+    JSR         PRINT_SPACE
+    JSR         OP_SHIFTS_EA
+    RTS
+
+OP_LSR_NO_SIZE:
+    LEA         LsrMsg,A1
+    JSR         PRINT_MSG
+    JSR         PRINT_SPACE
+    JSR         OP_SHIFTS_EA
+    RTS
+
+OP_ASL_NO_SIZE:
+    LEA         AslMsg,A1
+    JSR         PRINT_MSG
+    JSR         PRINT_SPACE
+    JSR         OP_SHIFTS_EA
+    RTS
+
+OP_ASR_NO_SIZE:
+    LEA         AsrMsg,A1
+    JSR         PRINT_MSG
+    JSR         PRINT_SPACE
+    JSR         OP_SHIFTS_EA
+    RTS
+
+OP_ROL_NO_SIZE:
+    LEA         RolMsg,A1
+    JSR         PRINT_MSG
+    JSR         PRINT_SPACE
+    JSR         OP_SHIFTS_EA
+    RTS
+
+OP_ROR_NO_SIZE:
+    LEA         RorMsg,A1
+    JSR         PRINT_MSG
+    JSR         PRINT_SPACE
+    JSR         OP_SHIFTS_EA
+    RTS
+
 OP_SHIFTS_EA:
     JSR         SHIFT_SUB
     JSR         PRINT_FINAL
     RTS
 
 PRINT_OP_SIZE:  * Check the size of the instruction
-    MOVE.B      #$01, ISLONG            * Require for D6
+    MOVE.B      #$01, $4701            * Require for D6
     MOVE.W      D7,D4
     LSR.L       #6,D4
     AND.B       #%00000011,D4
@@ -1002,20 +1092,23 @@ PRINT_OP_SIZE:  * Check the size of the instruction
     BEQ         OP_PRINT_WORD
     CMP.B       #$02,D4                 * If bits are 10 then it's a long
     BEQ         OP_PRINT_LONG
+    JSR         PRINT_SPACE
     RTS                                 * If cannot find the sign then just return and act as if there is no sign
     
 * Reason for these is so we can still rts after printing. Also easier to add in any other code here if needed
 OP_PRINT_BYTE:
     JSR         PRINT_BYTE
+    MOVE.B      #$01, $4701            * Require for D6
     RTS
 
 OP_PRINT_WORD:
     JSR         PRINT_WORD
+    MOVE.B      #$01, $4701            * Require for D6
     RTS
 
 OP_PRINT_LONG:
     JSR         PRINT_LONG
-    MOVE.B      #$02, ISLONG            * Require for D6
+    MOVE.B      #$02, $4701            * Require for D6
     RTS
 
 *************************
@@ -1054,10 +1147,10 @@ MOVE_SRC:                       * Addressing Register comparision
     BEQ     LONG_SRC            * Long
     CMPI.B  #4, $7003
     BEQ     IMM_DATA            * Immediate Register
-    CMPI.B  #2, $7003
-    BEQ     PC_D16              * (d16,PC)
-    CMPI.B  #3, $7003
-    BEQ     PC_D8               * (d8,PC,Xn)
+    * CMPI.B  #2, $7003
+    * BEQ     PC_D16              * (d16,PC)
+    * CMPI.B  #3, $7003
+    * BEQ     PC_D8               * (d8,PC,Xn)
     JSR     INVALID_EA
     RTS         *Change later
 WORD_SRC:
@@ -1100,12 +1193,30 @@ IMM_DATA:
     MOVE.B  #$24, (A2)+     * $
 
     * Read D6
-    CMPI.B  #02,  ISLONG
+    CMPI.B  #$02, $4701
     BEQ     READ_LONG_WORD    
     JSR     READ_WORD       * Read D6 for parameter
     BRA     CONT_POST_READ
 READ_LONG_WORD
     JSR     READ_LONG
+    JSR     READ_LONG
+    MOVE.L  D6,$4000        *temp
+    MOVE.B  #16,D2
+    LSR.L   D2,D6   
+    JSR     DATA_SUB        * Data
+    MOVE.B  $7100, (A2)+    * D6
+    MOVE.B  $7101, (A2)+    * D6
+    MOVE.B  $7102, (A2)+    * D6
+    MOVE.B  $7103, (A2)+    * D6
+    MOVE.L  $4000,D6           
+    JSR     DATA_SUB        * Data
+    MOVE.B  $7100, (A2)+    * D6
+    MOVE.B  $7101, (A2)+    * D6
+    MOVE.B  $7102, (A2)+    * D6
+    MOVE.B  $7103, (A2)+    * D6
+    MOVE.B  #$2C, (A2)+     * ,
+    MOVE.B  #$00,(A2)+      * NULL
+    BRA     IMM_DATA_OUT
 CONT_POST_READ
     JSR     DATA_SUB        * Data
 
@@ -1115,6 +1226,7 @@ CONT_POST_READ
     MOVE.B  $7103, (A2)+    * D6
     MOVE.B  #$2C, (A2)+     * ,
     MOVE.B  #$00,(A2)+      * NULL
+IMM_DATA_OUT
     MOVE.L  D6,$4000 
     MOVE.L  D5,D6
     RTS
