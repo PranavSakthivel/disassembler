@@ -637,9 +637,6 @@ GET_OP_CODE:
     LSR.L       #8,D3
     LSR.L       #4,D3
 
-    JSR         PRINT_CURRENT_MACHINE_CODE
-    JSR         PRINT_TAB
-
     CLR         D4                      * Clear in case a long was previously stored here
     MOVE.W      D7,D4                   * For inconclusive nibbles then we need to check the next nibble (aka second byte from the right)
     LSR.L       #8,D4                   * Get rid of the right most byte and replace it with the left most
