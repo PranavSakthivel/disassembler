@@ -2061,7 +2061,8 @@ NDISP_8_BIT                 *Two's complement instructions
     SUB.L   D3,D5           *subtract 8-bits from PC
     
 DISP_8_RET
-    MOVEA.L #$7500,A2       
+    MOVEA.L #$7500,A2
+    MOVEA.L #$8000,A3       
     MOVE.L  D5,D6
     MOVE.B  #$24, (A2)+     * $
     MOVE.B  #16,D2          *
@@ -2077,7 +2078,8 @@ DISP_8_RET
     MOVE.B  $7101, (A2)+    * D6
     MOVE.B  $7102, (A2)+    * D6
     MOVE.B  $7103, (A2)+    * D6
-    MOVE.B  #$00,(A2)+      * NULL    
+    MOVE.B  #$00,(A2)+      * NULL
+    MOVE.B  #$00,(A3)+      * NULL     
     RTS    
 
 *************************
@@ -2180,3 +2182,8 @@ DONE:
 
 
 
+
+*~Font name~Courier New~
+*~Font size~10~
+*~Tab type~1~
+*~Tab size~4~
