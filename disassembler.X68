@@ -30,6 +30,8 @@ LF                  EQU     $0D     * Ascii for carriage return
 StartAddress        EQU     $5000
 EndAddress          EQU     $5008   * difference of 4 or 8?
 CntrlCounterAddr    EQU     $5012
+inputAddr           DC.B    '',0
+a1BaseAddr          DC.B    '',0
 EndlMsg             DC.B    '',CR,LF,0
 SpaceMsg            DC.B    ' ',0
 MSG_INVALID_OP      DC.B    'Invalid op code: ',0
@@ -121,7 +123,7 @@ START:                  ; first instruction of program
 CHECK_IF_DONE_READING:
     BRA             READ_AND_WAIT_LOOP
     * Ignore below until reading works
-    * CMPA            StartAddress,EndAddress   * Check if start and end addresses are equal
+    * CMPA            A6,EndAddress   * Check if start and end addresses are equal
     BGE             CHECK_IF_RESTART    * If equal (or greater), assume done but first check if they want to restart
     BLT             READ_AND_WAIT_LOOP  * Else continue to loop
 
@@ -266,6 +268,7 @@ GET_USER_INPUT:     * Get user hex input
         LEA         addrOnePrompt,A1    * Load intro message into A1
         JSR         PRINT_MSG           * Print prompt
 
+        LEA         StartAddress,A1
         JSR         GET_INPUT_AS_STRING * Get the user input as string
         CMP.W       #$0008,D1           * User input length retuned in D1.W (max 80)
         BNE         INVALID_IO_LENGTH   * Invalid length (aka address was less than 8 chars)
@@ -393,9 +396,11 @@ GET_2ND_NUMBER:
         LEA         addrTwoPrompt,A1    * Load intro message into A1
         JSR         PRINT_MSG           * Print prompt
         
+        LEA         EndAddress,A1
         JSR         GET_INPUT_AS_STRING  * Get user input as string
         
         MOVEA.L     A1,A2               * Move A1 into A2 so value does not get overwritten
+        LEA         a1BaseAddr,A1
         MOVEA.L     #$3500,A3           * Starting address for storing Hex number at A3
 
         MOVE.B      #9,D2               * Number of digits to be read, subtracted each iteration
