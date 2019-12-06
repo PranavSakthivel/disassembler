@@ -637,6 +637,9 @@ GET_OP_CODE:
     LSR.L       #8,D3
     LSR.L       #4,D3
 
+    JSR         PRINT_CURRENT_MACHINE_CODE
+    JSR         PRINT_TAB
+
     CLR         D4                      * Clear in case a long was previously stored here
     MOVE.W      D7,D4                   * For inconclusive nibbles then we need to check the next nibble (aka second byte from the right)
     LSR.L       #8,D4                   * Get rid of the right most byte and replace it with the left most
@@ -1147,10 +1150,10 @@ MOVE_SRC:                       * Addressing Register comparision
     BEQ     LONG_SRC            * Long
     CMPI.B  #4, $7003
     BEQ     IMM_DATA            * Immediate Register
-    CMPI.B  #2, $7003
-    BEQ     PC_D16              * (d16,PC)
-    CMPI.B  #3, $7003
-    BEQ     PC_D8               * (d8,PC,Xn)
+    * CMPI.B  #2, $7003
+    * BEQ     PC_D16              * (d16,PC)
+    * CMPI.B  #3, $7003
+    * BEQ     PC_D8               * (d8,PC,Xn)
     JSR     INVALID_EA
     RTS         *Change later
 WORD_SRC:
@@ -1193,7 +1196,7 @@ IMM_DATA:
     MOVE.B  #$24, (A2)+     * $
 
     * Read D6
-    CMPI.B  #02, $4701
+    CMPI.B  #$02, $4701
     BEQ     READ_LONG_WORD    
     JSR     READ_WORD       * Read D6 for parameter
     BRA     CONT_POST_READ
