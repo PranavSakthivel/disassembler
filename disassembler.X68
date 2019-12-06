@@ -826,6 +826,7 @@ OP_MOVE_LONG:
     LEA         MoveMsg,A1
     JSR         PRINT_MSG
     JSR         PRINT_LONG
+    MOVE.B      #$02, $4701
     BRA         OP_MOVE_EA
 
 OP_MOVEA_WORD:
@@ -838,6 +839,7 @@ OP_MOVEA_LONG:
     LEA         MoveaMsg,A1
     JSR         PRINT_MSG
     JSR         PRINT_LONG
+    MOVE.B      #$02, $4701
     BRA         OP_MOVE_EA
 
 OP_MOVE_EA:
@@ -1177,7 +1179,6 @@ IMM_DATA:
     BRA     CONT_POST_READ
 READ_LONG_WORD
     JSR     READ_LONG
-    JSR     READ_LONG
     MOVE.L  D6,$4000        *temp
     MOVE.B  #16,D2
     LSR.L   D2,D6   
@@ -1194,6 +1195,7 @@ READ_LONG_WORD
     MOVE.B  $7103, (A2)+    * D6
     MOVE.B  #$2C, (A2)+     * ,
     MOVE.B  #$00,(A2)+      * NULL
+    MOVE.B  #$01, $4701
     BRA     IMM_DATA_OUT
 CONT_POST_READ
     JSR     DATA_SUB        * Data
