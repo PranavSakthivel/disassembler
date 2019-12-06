@@ -33,7 +33,7 @@ CntrlCounterAddr    EQU     $5012
 EndlMsg             DC.B    '',CR,LF,0
 SpaceMsg            DC.B    ' ',0
 MSG_INVALID_OP      DC.B    'Invalid op code: ',0
-MSG_INVALID_EA      DC.B    'Invalid ea code: ',CR,LF,0
+MSG_INVALID_EA      DC.B    ' Invalid ea code ',CR,LF,0
 IntroMsg            DC.B    'Please enter start and end hexadecimal addresses, one after the other: ',0
 ContinueReadingMsg  DC.B    'Please press "enter" or "space" to continue reading, any other key will terminate the program',0
 RestartMsg          DC.B    'If you would like to start over type "y", if you would like to terminate type anything else',0
