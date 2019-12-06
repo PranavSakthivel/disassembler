@@ -30,14 +30,12 @@ LF                  EQU     $0D     * Ascii for carriage return
 StartAddress        EQU     $5000
 EndAddress          EQU     $5008   * difference of 4 or 8?
 CntrlCounterAddr    EQU     $5012
-inputAddr           DC.B    '',0
-a1BaseAddr          DC.B    '',0
 EndlMsg             DC.B    '',CR,LF,0
 SpaceMsg            DC.B    ' ',0
 MSG_INVALID_OP      DC.B    'Invalid op code: ',0
 MSG_INVALID_EA      DC.B    'Invalid ea code: ',CR,LF,0
 IntroMsg            DC.B    'Please enter start and end hexadecimal addresses, one after the other: ',0
-ContinueReadingMsg  DC.B    'Please press "enter" to read another 15 lines, any other key will terminate the program',0
+ContinueReadingMsg  DC.B    'Please press "enter" or "space" to continue reading, any other key will terminate the program',0
 RestartMsg          DC.B    'If you would like to start over type "y", if you would like to terminate type anything else',0
 OverflowError       DC.B    'Overflow Error',CR,LF,0
 MSG_INVALID_INPUT   DC.B    'Error: Invalid characters were entered. Valid characters are 0-9 and A-F.',CR,LF,0
@@ -46,6 +44,10 @@ addrOnePrompt       DC.B    'Start address: ',0
 addrTwoPrompt       DC.B    'End address: ',0
 MSG_INVALID_GREATER DC.B    'Start address cannot be greater than end address',0
 MSG_INVALID_EQUAL   DC.B    'Start address cannot be equal to end address',0
+endReachedMsg       DC.B    'Ending address has been reached',0
+finishedMsg         DC.B    'Program is terminating',0
+inputAddr           DC.B    '',0
+a1BaseAddr          DC.B    '',0
 IS_REV              DS.W    2 
 CNTRI               DS.W    2 
 CNTRJ               DS.W    2 
@@ -114,17 +116,13 @@ RorMsg              DC.B    'ROR',0
     ORG    $1000
 
 START:                  ; first instruction of program
-    * JSR             CLEAR_ALL_DATA_REGISTERS *TBD THIS MUST BE BELOW THE ORG TO WORK
-    * JSR             RUN_ALL_TESTS       * TBD Comment out for prod
-
+    JSR             CLEAR_ALL_DATA_REGISTERS *TBD THIS MUST BE BELOW THE ORG TO WORK
     JSR             CALL_GET_USER_INPUT     * Get and save user input
     BRA             CHECK_IF_DONE_READING   * Begin loop of reading and printing
 
 CHECK_IF_DONE_READING:
-    BRA             READ_AND_WAIT_LOOP
-    * Ignore below until reading works
-    * CMPA            A6,EndAddress   * Check if start and end addresses are equal
-    BGE             CHECK_IF_RESTART    * If equal (or greater), assume done but first check if they want to restart
+    CMPA.L          A4,A6               * Check if our current address and our end address have been reached
+    BGE             END_ADDR_REACHED    * If equal (or greater), assume done reading
     BLT             READ_AND_WAIT_LOOP  * Else continue to loop
 
 
@@ -136,7 +134,7 @@ READ_AND_WAIT_LOOP:
     JSR             READ_NEXT_WORD      * Read and store next instruction
     JSR             CALL_GET_OP         * Get opcode, which will call into the correct EA
     JSR             PRINT_NEWLINE
-    BRA             READ_AND_WAIT_LOOP  * Continue the loop
+    BRA             CHECK_IF_DONE_READING  * Continue the loop
 
 WAIT_FOR_USER:
     CLR         D1                      * Clear relevant data registers
@@ -146,9 +144,17 @@ WAIT_FOR_USER:
     MOVE.B      #5,D0  
     TRAP        #15                     * Task 5: Read single character from the keyboard into D1.B
 
-    CMP.B       #$0D,D1                 * #$0D = 'enter' (key)
+    CMP.B       #$20,D1                 * #$0D = 'enter' (key)
     BEQ         CHECK_IF_DONE_READING   * If enter continue to read
+
+    CMP.B       #$0D,D1                 * #$20 = 'space' (key)
+    BEQ         CHECK_IF_DONE_READING   * If space continue to read
     BNE         CHECK_IF_RESTART        * Else check if they would like to restart
+
+END_ADDR_REACHED:   
+    LEA         endReachedMsg,A1        * Print end address
+    JSR         PRINT_MSG
+    BRA         CHECK_IF_RESTART        * Check if they want to restart
 
 CHECK_IF_RESTART:
     CLR         D1                      * Clear D1 because Trap task #5 only will write a byte into it
@@ -157,6 +163,7 @@ CHECK_IF_RESTART:
     JSR         PRINT_MSG_ENDL
     MOVE.B      #5,D0  
     TRAP        #15                     * Task 5: Read single character from the keyboard into D1.B
+    JSR         PRINT_NEWLINE           * Give line so start message isn't on the same line
 
     CMP.B       #$79,D1                 * #$79 = 'y'
     BEQ         START                   * If y then restart
@@ -383,9 +390,9 @@ AFTER_ADDRESS:
         CMP.B       #1,D7
         BEQ         GET_2ND_NUMBER
         
-        * CMP.L       D5,D3
-        * BGT         INVALID_START_GREATER
-        * BEQ         INVALID_EQUAL
+        MOVEA.L     D3,A4                   * Save end address in an address register
+        CMPA.L      A4,A6                   * Check if our start address is greater than our end address
+        BGE         INVALID_START_GREATER    
         
         BRA         GLOBAL_RTS
         
@@ -396,11 +403,11 @@ GET_2ND_NUMBER:
         LEA         addrTwoPrompt,A1    * Load intro message into A1
         JSR         PRINT_MSG           * Print prompt
         
-        LEA         EndAddress,A1
+        LEA         EndAddress,A1       * Want input stored here
         JSR         GET_INPUT_AS_STRING  * Get user input as string
         
         MOVEA.L     A1,A2               * Move A1 into A2 so value does not get overwritten
-        LEA         a1BaseAddr,A1
+        LEA         a1BaseAddr,A1       * In order to not overwrite end address save this
         MOVEA.L     #$3500,A3           * Starting address for storing Hex number at A3
 
         MOVE.B      #9,D2               * Number of digits to be read, subtracted each iteration
@@ -2191,6 +2198,8 @@ TEST_RUN_NIBBLE_TEST:
 *         End           *
 *************************
 DONE:
+    LEA         finishedMsg,A1
+    JSR         PRINT_MSG
     SIMHALT                 ; halt simulator
 
     END    START        ; last line of source
